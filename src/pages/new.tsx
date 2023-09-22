@@ -54,7 +54,6 @@ const loadingItems = [
 
 const NewPage: NextPageWithLayout = () => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [input, setInput] = useState<string>("");
 
@@ -86,7 +85,7 @@ const NewPage: NextPageWithLayout = () => {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
   };
 
