@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "sqlite"
+    // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
+    // Further reading:
+    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
+    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
+    url      = env("DATABASE_URL")
+}
+
+// Necessary for Next auth
+model Account {
+    id                       String  @id @default(cuid())
+    userId                   String
+    type                     String
+    provider                 String
+    providerAccountId        String
+    refresh_token            String? // @db.Text
+    access_token             String? // @db.Text
+    expires_at               Int?
+    refresh_token_expires_in Int? // this is for github
+    token_type               String?
+    scope                    String?
+    id_token                 String? // @db.Text
+    session_state            String?
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([provider, providerAccountId])
+    @@index([userId])
+}
+
+model Session {
+    id           String   @id @default(cuid())
+    sessionToken String   @unique
+    userId       String
+    expires      DateTime
+    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+    id            String    @id @default(cuid())
+    name          String?
+    email         String?   @unique
+    emailVerified DateTime?
+    gh_username   String?
+    image         String?
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+
+    accounts   Account[]
+    sessions   Session[]
+    components Component[]
+}
+
+model Component {
+    id     String @id @default(cuid())
+    code   String
+    prompt String
+
+    author   User?   @relation(fields: [authorId], references: [id])
+    authorId String?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    revisions ComponentRevision[]
+}
+
+model ComponentRevision {
+    id     String @id @default(cuid())
+    code   String
+    prompt String
+
+    component   Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+    componentId String
+
+    promptVersion Int @default(1)
+    LLMVersion    Int @default(1)
+
+    createdAt DateTime @default(now())
+}
+
+model VerificationToken {
+    identifier String
+    token      String   @unique
+    expires    DateTime
+
+    @@unique([identifier, token])
+}
