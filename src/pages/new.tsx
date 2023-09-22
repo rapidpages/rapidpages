@@ -55,6 +55,9 @@ const loadingItems = [
 const NewPage: NextPageWithLayout = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [input, setInput] = useState<string>("");
+
   const generateComponent = api.component.createComponent.useMutation();
   const { data: session, status } = useSession();
   const randomItem =
@@ -83,26 +86,36 @@ const NewPage: NextPageWithLayout = () => {
     }
   };
 
-  useEffect(() => {
-    function hotkeyPress(e: KeyboardEvent) {
-      if (!inputRef.current) return;
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+  };
 
-      if (e.key === "/") {
-        e.preventDefault();
-        inputRef.current.focus();
-        return;
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        const prompt = inputRef.current.value;
-        if (inputRef.current.value === "") return;
-        handleGenerateComponent(prompt);
-        return;
-      }
-    }
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (input === "") return;
+    handleGenerateComponent(input);
+  };
 
-    document.addEventListener("keydown", hotkeyPress);
-    return () => document.removeEventListener("keydown", hotkeyPress);
-  }, []);
+  // Remove this for now
+  // useEffect(() => {
+  //   function hotkeyPress(e: KeyboardEvent) {
+  //     if (!inputRef.current) return;
+
+  //     if (e.key === "/") {
+  //       e.preventDefault();
+  //       inputRef.current.focus();
+  //       return;
+  //     } else if (e.key === "Enter") {
+  //       e.preventDefault();
+  //       const prompt = inputRef.current.value;
+  //       if (inputRef.current.value === "") return;
+  //       handleGenerateComponent(prompt);
+  //       return;
+  //     }
+  //   }
+  //   document.addEventListener("keydown", hotkeyPress);
+  //   return () => document.removeEventListener("keydown", hotkeyPress);
+  // }, []);
 
   return (
     <div className="flex h-full flex-grow flex-col">
@@ -169,19 +182,22 @@ const NewPage: NextPageWithLayout = () => {
               </div>
             </Dialog>
           </Transition>
-          <div className="relative mx-5 my-64 flex items-center sm:mx-10 md:mx-32">
-            <input
-              type="text"
-              className="block w-full rounded-md border-0 py-1.5 pr-14 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-              placeholder="A chat application panel with a header, a search input, and a list of recent conversations."
-              ref={inputRef}
-            />
-            <div className="absolute inset-y-0 right-0 flex py-1.5 pr-1.5">
-              <kbd className="inline-flex items-center rounded border border-gray-200 px-2 font-sans text-xs text-gray-400">
-                /
-              </kbd>
+          <form onSubmit={handleSubmit} ref={formRef}>
+            <div className="relative mx-5 my-64 flex items-center sm:mx-10 md:mx-32">
+              <input
+                type="text"
+                className="block w-full rounded-md border-0 py-1.5 pr-14 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                placeholder="A chat application panel with a header, a search input, and a list of recent conversations."
+                onChange={handleInputChange}
+              />
+              <div className="absolute inset-y-0 right-0 flex py-1.5 pr-1.5">
+                <kbd className="inline-flex items-center rounded border border-gray-200 px-2 font-sans text-xs text-gray-400">
+                  /
+                </kbd>
+              </div>
             </div>
-          </div>
+          </form>
+
           <h2 className="text-base font-semibold leading-6 text-gray-900">
             Need some inspiration?
           </h2>
