@@ -172,13 +172,8 @@ const NewPage: NextPageWithLayout = () => {
           <div className="relative mx-5 my-64 flex items-center sm:mx-10 md:mx-32">
             <input
               type="text"
-              name="search"
-              id="search"
               className="block w-full rounded-md border-0 py-1.5 pr-14 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
               placeholder="A chat application panel with a header, a search input, and a list of recent conversations."
-              onSubmit={() => {
-                alert("submitted");
-              }}
               ref={inputRef}
             />
             <div className="absolute inset-y-0 right-0 flex py-1.5 pr-1.5">
