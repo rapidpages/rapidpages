@@ -189,11 +189,11 @@ const NewPage: NextPageWithLayout = () => {
                 placeholder="A chat application panel with a header, a search input, and a list of recent conversations."
                 onChange={handleInputChange}
               />
-              <div className="absolute inset-y-0 right-0 flex py-1.5 pr-1.5">
+              {/* <div className="absolute inset-y-0 right-0 flex py-1.5 pr-1.5">
                 <kbd className="inline-flex items-center rounded border border-gray-200 px-2 font-sans text-xs text-gray-400">
                   /
                 </kbd>
-              </div>
+              </div> */}
             </div>
           </form>
 
