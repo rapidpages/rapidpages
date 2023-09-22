@@ -61,8 +61,10 @@ export const SideMenu = ({ revisions }: { revisions: ComponentRevision[] }) => {
 
       <div className="flex flex-col justify-end border-t border-gray-300 pb-2">
         <div className="flex gap-2 px-2 pt-2">
-          <button
-            type="button"
+          <a
+            target="_blank"
+            rel="noopener noreferrer"
+            href="https://github.com/rapidpages/rapidpages/blob/main/CHANGELOG.md"
             className="inline-flex flex-1 justify-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
           >
             <MegaphoneIcon
@@ -70,11 +72,13 @@ export const SideMenu = ({ revisions }: { revisions: ComponentRevision[] }) => {
               aria-hidden="true"
             />
             <div className="">Changelog</div>
-          </button>
+          </a>
         </div>
         <div className="flex gap-2 px-2 pt-2">
-          <button
-            type="button"
+          <a
+            target="_blank"
+            rel="noopener noreferrer"
+            href="https://github.com/rapidpages/rapidpages"
             className="inline-flex flex-1 justify-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
           >
             <svg
@@ -90,13 +94,14 @@ export const SideMenu = ({ revisions }: { revisions: ComponentRevision[] }) => {
               />
             </svg>
             <div className="">Github</div>
-          </button>
+          </a>
         </div>
         <div className="flex gap-2 px-2 pt-2">
           <a
             className="inline-flex flex-1 justify-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
             href="https://discord.gg/W6jYq46Frd"
             target="_blank"
+            rel="noopener noreferrer"
           >
             <svg
               className="-ml-0.5 mr-1 h-5 w-5"
