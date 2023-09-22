@@ -4,9 +4,14 @@
   "private": true,
   "scripts": {
     "build": "next build",
+    "build:production": "npx prisma migrate deploy && next build",
     "db:push": "prisma db push",
     "dev": "next dev",
     "postinstall": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:reset": "prisma migrate reset",
+    "prisma:push": "prisma db push",
     "lint": "next lint",
     "start": "next start"
   },
