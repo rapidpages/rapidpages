@@ -7,7 +7,11 @@ import {
   Fragment,
 } from "react";
 import { ApplicationLayout } from "~/components/AppLayout";
-import { ChevronRightIcon, CommandLineIcon } from "@heroicons/react/24/outline";
+import {
+  ChevronRightIcon,
+  CommandLineIcon,
+  PaperAirplaneIcon,
+} from "@heroicons/react/24/outline";
 import { Dialog, Transition } from "@headlessui/react";
 import { Spinner } from "~/components/Spinner";
 import Image from "next/image";
@@ -189,11 +193,12 @@ const NewPage: NextPageWithLayout = () => {
                 placeholder="A chat application panel with a header, a search input, and a list of recent conversations."
                 onChange={handleInputChange}
               />
-              {/* <div className="absolute inset-y-0 right-0 flex py-1.5 pr-1.5">
-                <kbd className="inline-flex items-center rounded border border-gray-200 px-2 font-sans text-xs text-gray-400">
-                  /
-                </kbd>
-              </div> */}
+              <button
+                type="submit"
+                className="ml-1 inline-flex items-center rounded-md bg-indigo-600 px-2 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              >
+                <PaperAirplaneIcon className="h-4 w-4"></PaperAirplaneIcon>
+              </button>
             </div>
           </form>
 
