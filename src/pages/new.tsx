@@ -74,8 +74,8 @@ const NewPage: NextPageWithLayout = () => {
         throw new Error("Failed to generate component");
       }
       const { componentId } = result.data;
-      router.push(`/c/${componentId}`);
-      setIsGenerating(false);
+      await router.push(`/c/${componentId}`);
+      return;
     } catch (e) {
       setIsGenerating(false);
       toast.error("Failed to generate component");
