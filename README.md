@@ -36,7 +36,7 @@ npm run dev
 
 ### Run Rapidpages Cloud
 
-You can start using Rapidpages today on the cloud for free. If you run out of credits, feel free to ping us on [discord](https://discord.gg/W6jYq46Frd).
+You can start using [Rapidpages](https://www.rapidpages.io) today on the cloud for free. If you run out of credits, feel free to ping us on [discord](https://discord.gg/W6jYq46Frd).
 
 ## Known Limitations
 
