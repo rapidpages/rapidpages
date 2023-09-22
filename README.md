@@ -14,6 +14,8 @@
 
 Rapidpages is a prompt-first IDE for building great-looking pages. You simply describe the UI you desire and it will generate the code for that component using the technologies that are familiar to you (currently only React+Tailwind are supported).
 
+https://github.com/rapidpages/rapidpages/assets/1308560/a7505448-bc0d-4035-9cff-39e8df5ecac9
+
 ## Get Started
 
 ### Run Rapidpages locally
