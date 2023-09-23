@@ -30,31 +30,31 @@ const containsDiff = (message: string) => {
 };
 
 const applyDiff = (code: string, diff: string) => {
-  const before = /<<<<<<< ORIGINAL\n(.*?)=======/gs.exec(diff);
-  const after = /=======\n(.*?)>>>>>>> UPDATED/gs.exec(diff);
+  const regex = /<<<<<<< ORIGINAL\n(.*?)=======\n(.*?)>>>>>>> UPDATED/gs;
+
+  let match;
 
   // debugger;
-  if (before && after && before.length === after.length) {
-    before.forEach((b, i) => {
-      if (i === 0) return;
-      // Convert match to a regex. We need to do this because
-      // gpt returns the code with the tabs removed. The idea here is to
-      // convert newlines to \s+ so that we catch even if the indentation
-      // is different.
-      // TODO: Before we replace, we can also check how indented the code is
-      // and add the same indentation to the replacement.
-      let regex = escapeRegExp(b);
-      regex = regex.replaceAll(/\r?\n/g, "\\s+");
-      regex = regex.replaceAll(/\t/g, "");
+  while ((match = regex.exec(diff)) !== null) {
+    const [, before, after] = match;
 
-      // Create the regex
-      const replaceRegex = new RegExp(regex);
+    // Convert match to a regex. We need to do this because
+    // gpt returns the code with the tabs removed. The idea here is to
+    // convert newlines to \s+ so that we catch even if the indentation
+    // is different.
+    // TODO: Before we replace, we can also check how indented the code is
+    // and add the same indentation to the replacement.
+    let regex = escapeRegExp(before!);
+    regex = regex.replaceAll(/\r?\n/g, "\\s+");
+    regex = regex.replaceAll(/\t/g, "");
 
-      // console.log(`Replacing $$$${replaceRegex}$$$ with $$$${after[i]}$$$`);
-      // console.log(`Code before: ${code}`);
+    // Create the regex
+    const replaceRegex = new RegExp(regex);
 
-      code = code.replace(replaceRegex, after[i]!);
-    });
+    // console.log(`Replacing $$$${replaceRegex}$$$ with $$$${after}$$$`);
+    // console.log(`Code before: ${code}`);
+
+    code = code.replace(replaceRegex, after!);
   }
 
   return code;
