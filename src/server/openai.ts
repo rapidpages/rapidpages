@@ -5,6 +5,7 @@ import { escapeRegExp } from "~/utils/utils";
 const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
 });
+const openaiModelName = "gpt-4-0613";
 
 const extractFirstCodeBlock = (input: string) => {
   const pattern = /```(\w+)?\n([\s\S]+?)\n```/g;
@@ -62,7 +63,7 @@ const applyDiff = (code: string, diff: string) => {
 
 export async function reviseComponent(prompt: string, code: string) {
   const completion = await openai.chat.completions.create({
-    model: "gpt-4-0613",
+    model: openaiModelName,
     messages: [
       {
         role: "system",
@@ -130,7 +131,7 @@ export async function reviseComponent(prompt: string, code: string) {
 
 export async function generateNewComponent(prompt: string) {
   const completion = await openai.chat.completions.create({
-    model: "gpt-4-0613",
+    model: openaiModelName,
     messages: [
       {
         role: "system",
