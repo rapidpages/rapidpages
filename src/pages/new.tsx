@@ -75,16 +75,17 @@ const NewPage: NextPageWithLayout = () => {
 
     try {
       const result = await generateComponent.mutateAsync(prompt);
-
-      if (result.status === "error") {
-        throw new Error("Failed to generate component");
+      const { status, data } = result;
+      if (status === "error") {
+        throw new Error(data.componentId || "Failed to generate component");
       }
-      const { componentId } = result.data;
+      const { componentId } = data;
       await router.push(`/c/${componentId}`);
       return;
     } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : "An unknown error occurred";
       setIsGenerating(false);
-      toast.error("Failed to generate component");
+      toast.error(errorMessage);
       return;
     }
   };
