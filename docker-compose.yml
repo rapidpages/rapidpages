@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  # RapidPages app
+  rapidpages:
+    container_name: rapidpages-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    networks:
+      - rapidpages-network
+    env_file:
+      - .env
+    depends_on:
+      - database
+
+  # PostgreSQL database
+  database:
+    image: postgres:latest
+    container_name: rapidpages-database
+    environment:
+      POSTGRES_DB: rapidpages
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    networks:
+      - rapidpages-network
+    env_file:
+      - .env
+
+networks:
+  rapidpages-network:
+    driver: bridge
+
+volumes:
+  pg-data:
