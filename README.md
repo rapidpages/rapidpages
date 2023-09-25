@@ -26,14 +26,22 @@ git clone https://github.com/rapidpages/rapidpages.git && cd rapidpages
 
 Edit the `.env.example` file to ensure the following values are set:
 
-- OPENAI_API_KEY: you need to get a key from [OpenAI](https://platform.openai.com/)
-- GITHUB_CLIENT_SECRET & GITHUB_CLIENT_ID: you need to create a GitHub oauth application to be able to login. Follow [this guide](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app) from GitHub.
+- `OPENAI_API_KEY`: you need to get a key from [OpenAI](https://platform.openai.com/)
+- `GITHUB_CLIENT_SECRET` & `GITHUB_CLIENT_ID`: you need to create a GitHub oauth application to be able to login. Follow [this guide](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app) from GitHub.
 
+#### Run Rapidpages on Host
 Create the database & run the application
 
 ```bash
 npm run db:push
 npm run dev
+```
+
+#### Run Rapidpages on Docker
+
+```bash
+docker compose up -d
+docker compose exec rapidpages npm run db:push
 ```
 
 ### Run Rapidpages Cloud
