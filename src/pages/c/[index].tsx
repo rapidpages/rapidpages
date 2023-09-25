@@ -58,7 +58,7 @@ export const getServerSideProps = async (
   context: GetServerSidePropsContext,
 ) => {
   const componentId = context.params?.index as string;
-  const { ssg, session } = await ssgHelper(context);
+  const { ssg } = await ssgHelper(context);
 
   const component = await ssg.component.getComponent.fetch(componentId);
 

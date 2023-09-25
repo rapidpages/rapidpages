@@ -1,16 +1,15 @@
 import { Fragment } from "react";
 import { Disclosure, Menu, Transition } from "@headlessui/react";
-import { Bars3Icon, BellIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "~/utils/utils";
 import { Logo } from "./LogoLarge";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { CustomToaster } from "~/components/CustomToaster";
-import { env } from "~/env.mjs";
 import Head from "next/head";
+import Image from "next/image";
 
 const userNavigation = [
-  // { name: "Profile", href: "/profile" },
   { name: "Settings", href: "/settings" },
 ];
 
@@ -23,7 +22,7 @@ export const ApplicationLayout = ({
   title,
   children,
 }: ApplicationLayoutProps) => {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const user = session && session.user;
 
   return (
@@ -52,13 +51,13 @@ export const ApplicationLayout = ({
                         <Menu.Button className="flex max-w-xs items-center rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
                           <span className="sr-only">Open user menu</span>
                           {user && user.image ? (
-                            <img
+                            <Image
                               className="h-8 w-8 rounded-full"
                               src={user.image}
                               alt=""
                             />
                           ) : (
-                            <img
+                            <Image
                               className="h-8 w-8 rounded-full"
                               src="/images/person.jpg"
                               alt=""
@@ -144,13 +143,13 @@ export const ApplicationLayout = ({
                     <>
                       <div className="flex-shrink-0">
                         {user.image ? (
-                          <img
+                          <Image
                             className="h-10 w-10 rounded-full"
                             src={user.image}
                             alt=""
                           />
                         ) : (
-                          <img
+                          <Image
                             className="h-10 w-10 rounded-full"
                             src="/images/person.jpg"
                             alt=""

@@ -3,15 +3,10 @@ import { Fragment, useState } from "react";
 import { Logo } from "~/components/Logo";
 import { TabBackground } from "~/components/TabBackground";
 import { useComponentProvider } from "~/context/ComponentProvider";
-import {
-  ArrowTopRightOnSquareIcon,
-  PlusIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/solid";
+import { PlusIcon } from "@heroicons/react/24/solid";
 import { ReactLogo } from "~/components/ReactLogo";
 import { PagePanel } from "~/components/PagePanel";
 import { CodePanel } from "~/components/CodePanel";
-import { cn } from "~/utils/utils";
 import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -26,14 +21,11 @@ export const EditorTabs = ({
   revisionId: string;
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { tabs, setActiveTab } = useComponentProvider();
-  // const { getPublicURL, page } = useWebPageProvider();
-  // const sections = page.sections;
-
-  // const publicURL = getPublicURL();
+  const { tabs } = useComponentProvider();
 
   // If a tab is active find the active tab index
   const activeTab = tabs.find((tab) => tab.active);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const activeTabIndex = activeTab ? tabs.indexOf(activeTab) + 1 : 0;
 
   return (

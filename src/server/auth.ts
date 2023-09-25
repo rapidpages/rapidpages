@@ -5,7 +5,6 @@ import {
   type DefaultSession,
   type NextAuthOptions,
 } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
 import GithubProvider from "next-auth/providers/github";
 
 import { env } from "~/env.mjs";
@@ -21,15 +20,8 @@ declare module "next-auth" {
   interface Session extends DefaultSession {
     user: DefaultSession["user"] & {
       id: string;
-      // ...other properties
-      // role: UserRole;
     };
   }
-
-  // interface User {
-  //   // ...other properties
-  //   // role: UserRole;
-  // }
 }
 
 /**
@@ -71,7 +63,7 @@ export const authOptions: NextAuthOptions = {
      */
   ],
   events: {
-    createUser: async ({ user }) => {
+    createUser: async () => {
       // Notify Slack that a new user signed up
       // sendSlackMessage(`New user signed up: ${user.email}`);
     },

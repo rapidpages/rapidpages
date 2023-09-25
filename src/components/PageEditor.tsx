@@ -1,6 +1,4 @@
-import { PlusIcon } from "@heroicons/react/24/solid";
 import { useEffect, useRef, useState } from "react";
-import { type CanvasWrapperRef } from "~/components/CanvasWrapper";
 import { compileTypescript } from "~/utils/compiler";
 
 interface MyProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -9,16 +7,9 @@ interface MyProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const PageEditor = ({ code }: MyProps) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const canvasRef = useRef<CanvasWrapperRef>(null);
   const [dom, setDom] = useState<string | undefined>(undefined);
   const svgRef = useRef<SVGSVGElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [showNewSectionModal, setShowNewSectionModal] =
-    useState<boolean>(false);
-
-  const handleNewSectionModalClose = () => {
-    setShowNewSectionModal(false);
-  };
 
   useEffect(() => {
     // Compile and render the page
@@ -58,28 +49,6 @@ export const PageEditor = ({ code }: MyProps) => {
     // scrollTop = iframeRef.current.scrollTop + event.deltaY;
   };
 
-  // useEffect(() => {
-  //   const renderPage = async () => {
-  //     const iframe = iframeRef.current;
-  //     if (iframe && page) {
-  //       const reactor = Reactor.getInstance();
-  //       const reactorIFrame = reactor.getIFrame();
-
-  //       // Prepare the react elements
-
-  //       // We only want to set the document once
-  //       if (!reactorIFrame) {
-  //         reactor.setIFrame(iframe);
-  //       }
-
-  //       // Compile and render the page
-  //       await reactor.compile();
-  //     }
-  //   };
-
-  //   renderPage().catch(console.error);
-  // }, [page]);
-
   return (
     <div className="absolute inset-0 flex justify-center">
       <div
@@ -108,15 +77,6 @@ export const PageEditor = ({ code }: MyProps) => {
             <rect id="SVGHover"></rect>
           </svg>
         </div>
-        {/* <CanvasWrapper
-            className="pointer-events-none absolute left-0 top-0 z-10 box-border"
-            ref={canvasRef}
-            width={dimensions.width}
-            height={dimensions.height}
-            onAILassoFinished={() => {
-              console.log("finished");
-            }}
-          /> */}
       </div>
     </div>
   );

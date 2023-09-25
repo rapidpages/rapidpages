@@ -1,11 +1,11 @@
-import { useEffect, type ReactElement } from "react";
+import { type ReactElement } from "react";
 import { ApplicationLayout } from "~/components/AppLayout";
-import { PaperClipIcon, UserCircleIcon } from "@heroicons/react/24/solid";
 import { Button } from "~/components/Button";
 import { signOut, useSession } from "next-auth/react";
 import { api } from "~/utils/api";
 import { type NextPageWithLayout } from "./_app";
 import { LoadingPage } from "~/components/LoadingPage";
+import Image from "next/image";
 
 const SettingsPage: NextPageWithLayout = () => {
   const { data: session, status } = useSession({ required: true });
@@ -59,24 +59,18 @@ const SettingsPage: NextPageWithLayout = () => {
                   <dd className="mt-2 sm:col-span-2 sm:mt-0">
                     <div className="flex items-center gap-x-3">
                       {user.image ? (
-                        <img
+                        <Image
                           className="h-12 w-12 rounded-full"
                           src={user.image}
                           alt=""
                         />
                       ) : (
-                        <img
+                        <Image
                           className="h-12 w-12 rounded-full"
                           src="/images/person.jpg"
                           alt=""
                         />
                       )}
-                      {/* <button
-                        type="button"
-                        className="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                      >
-                        Change
-                      </button> */}
                     </div>
                   </dd>
                 </div>
