@@ -1,9 +1,8 @@
-import { signIn, signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import {
   useState,
   type ReactElement,
   useRef,
-  useEffect,
   Fragment,
 } from "react";
 import { ApplicationLayout } from "~/components/AppLayout";
@@ -62,7 +61,7 @@ const NewPage: NextPageWithLayout = () => {
   const [input, setInput] = useState<string>("");
 
   const generateComponent = api.component.createComponent.useMutation();
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const randomItem =
     loadingItems[Math.floor(Math.random() * loadingItems.length)]!;
 
@@ -98,27 +97,6 @@ const NewPage: NextPageWithLayout = () => {
     if (input === "") return;
     handleGenerateComponent(input);
   };
-
-  // Remove this for now
-  // useEffect(() => {
-  //   function hotkeyPress(e: KeyboardEvent) {
-  //     if (!inputRef.current) return;
-
-  //     if (e.key === "/") {
-  //       e.preventDefault();
-  //       inputRef.current.focus();
-  //       return;
-  //     } else if (e.key === "Enter") {
-  //       e.preventDefault();
-  //       const prompt = inputRef.current.value;
-  //       if (inputRef.current.value === "") return;
-  //       handleGenerateComponent(prompt);
-  //       return;
-  //     }
-  //   }
-  //   document.addEventListener("keydown", hotkeyPress);
-  //   return () => document.removeEventListener("keydown", hotkeyPress);
-  // }, []);
 
   return (
     <div className="flex h-full flex-grow flex-col">

@@ -5,7 +5,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/solid";
 import { Fragment } from "react";
-import toast, { Toaster, type Toast, type ToasterProps } from "react-hot-toast";
+import toast, { Toaster, type ToasterProps } from "react-hot-toast";
 
 export const CustomToaster: React.FC<ToasterProps> = (props) => (
   <Toaster {...props}>
