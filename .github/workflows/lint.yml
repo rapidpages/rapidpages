@@ -8,6 +8,12 @@ on:
 
 env:
   NODE_VERSION: 18
+  DATABASE_URL: 'Required'
+  OPENAI_API_KEY: 'Required'
+  NEXTAUTH_SECRET: 'Required'
+  GITHUB_CLIENT_ID: 'Required'
+  GITHUB_CLIENT_SECRET: 'Required'
+  NEXT_PUBLIC_URL: 'Required'
 
 jobs:
   linting:
