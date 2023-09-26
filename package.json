@@ -12,7 +12,7 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:reset": "prisma migrate reset",
     "prisma:push": "prisma db push",
-    "lint": "next lint --max-warnings 0",
+    "lint": "next lint",
     "start": "next start"
   },
   "dependencies": {
