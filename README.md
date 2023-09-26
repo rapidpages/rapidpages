@@ -6,7 +6,7 @@
 </picture>
 </p>
 
-<p align="center">
+<p align="center">asdsadas
   <a href="https://www.rapidpages.io?ref=github-readme" target="_blank">Website</a> • <a href="https://discord.gg/W6jYq46Frd" target="_blank">Discord</a>
 </p>
 
