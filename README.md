@@ -18,6 +18,8 @@ https://github.com/rapidpages/rapidpages/assets/1308560/a7505448-bc0d-4035-9cff-
 
 ## Get Started
 
+[![Lint](https://github.com/rapidpages/rapidpages/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/rapidpages/rapidpages/actions/workflows/lint.yml)
+
 ### Run Rapidpages locally
 
 ```bash
