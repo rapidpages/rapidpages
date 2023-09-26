@@ -1,0 +1,29 @@
+name: Lint
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+    - main
+
+env:
+  NODE_VERSION: 18
+
+jobs:
+  linting:
+    name: Running next lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup NodeJS
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Code Checkout
+        uses: actions/checkout@v2
+
+      - name: Clean Install Dependencies
+        run: npm ci
+
+      - name: Code Linting
+        run: npm run lint
