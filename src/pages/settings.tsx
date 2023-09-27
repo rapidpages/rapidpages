@@ -59,7 +59,7 @@ const SettingsPage: NextPageWithLayout = () => {
                   <dd className="mt-2 sm:col-span-2 sm:mt-0">
                     <div className="flex items-center gap-x-3">
                       {user.image ? (
-                        <Image
+                        <img
                           className="h-12 w-12 rounded-full"
                           src={user.image}
                           alt=""
