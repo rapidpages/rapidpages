@@ -4,6 +4,11 @@ import Link from "next/link";
 import { formatDistance } from "date-fns";
 
 export const SideMenu = ({ revisions }: { revisions: ComponentRevision[] }) => {
+  // Sort revisions by createdAt date. This isn't an issue since the revision count is relatively small.
+  const sortedRevisions = revisions.sort(
+    (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
+  );
+
   return (
     <div className="flex h-full w-full flex-grow flex-col rounded-lg border border-gray-300 bg-gray-200">
       <div className="flex border-b border-gray-300 px-2 py-2.5">
@@ -15,7 +20,7 @@ export const SideMenu = ({ revisions }: { revisions: ComponentRevision[] }) => {
       <div className="flex grow flex-col px-2 pb-3 pt-6">
         <div className="flow-root">
           <ul role="list" className="-mb-8">
-            {revisions.map((revision, revisionIdx) => (
+            {sortedRevisions.map((revision, revisionIdx) => (
               <li key={revision.id}>
                 <div className="relative pb-8">
                   {revisionIdx !== revisions.length - 1 ? (
