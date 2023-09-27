@@ -1,10 +1,5 @@
 import { useSession } from "next-auth/react";
-import {
-  useState,
-  type ReactElement,
-  useRef,
-  Fragment,
-} from "react";
+import { useState, type ReactElement, useRef, Fragment } from "react";
 import { ApplicationLayout } from "~/components/AppLayout";
 import {
   ChevronRightIcon,
@@ -69,6 +64,9 @@ const NewPage: NextPageWithLayout = () => {
     if (!session) {
       return router.push("/login");
     }
+
+    // Prevent double submission
+    if (isGenerating) return;
 
     setIsGenerating(true);
 
