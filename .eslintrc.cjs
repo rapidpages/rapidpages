@@ -17,6 +17,8 @@ const config = {
     "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
     "@typescript-eslint/no-explicit-any": ["error", { ignoreRestArgs: true }],
     "no-console": ["error", { allow: ["warn", "error"] }],
+    // Not all images have to be optimized. Some are already optimized.
+    "@next/next/no-img-element": "off",
     /*
      * I don't have a strong opinoion about this, but I think it's better to
      * have a consistent way to export modules.

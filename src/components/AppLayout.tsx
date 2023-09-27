@@ -9,9 +9,7 @@ import { CustomToaster } from "~/components/CustomToaster";
 import Head from "next/head";
 import Image from "next/image";
 
-const userNavigation = [
-  { name: "Settings", href: "/settings" },
-];
+const userNavigation = [{ name: "Settings", href: "/settings" }];
 
 interface ApplicationLayoutProps {
   title?: string;
@@ -51,7 +49,7 @@ export const ApplicationLayout = ({
                         <Menu.Button className="flex max-w-xs items-center rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
                           <span className="sr-only">Open user menu</span>
                           {user && user.image ? (
-                            <Image
+                            <img
                               className="h-8 w-8 rounded-full"
                               src={user.image}
                               alt=""
@@ -143,7 +141,7 @@ export const ApplicationLayout = ({
                     <>
                       <div className="flex-shrink-0">
                         {user.image ? (
-                          <Image
+                          <img
                             className="h-10 w-10 rounded-full"
                             src={user.image}
                             alt=""
