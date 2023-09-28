@@ -51,7 +51,7 @@ const ComponentPage: NextPageWithLayout<
 };
 
 ComponentPage.getLayout = (page: ReactElement) => (
-  <ApplicationLayout>{page}</ApplicationLayout>
+  <ApplicationLayout page="Component">{page}</ApplicationLayout>
 );
 
 export const getServerSideProps = async (

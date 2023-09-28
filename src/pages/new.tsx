@@ -239,7 +239,9 @@ const NewPage: NextPageWithLayout = () => {
 };
 
 NewPage.getLayout = (page: ReactElement) => (
-  <ApplicationLayout title="Create a new component">{page}</ApplicationLayout>
+  <ApplicationLayout page="New" title="Create a new component">
+    {page}
+  </ApplicationLayout>
 );
 
 export default NewPage;

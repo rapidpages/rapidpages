@@ -51,7 +51,7 @@ const RevisionPage: NextPageWithLayout<
 };
 
 RevisionPage.getLayout = (page: ReactElement) => (
-  <ApplicationLayout>{page}</ApplicationLayout>
+  <ApplicationLayout page="Revision">{page}</ApplicationLayout>
 );
 
 export const getServerSideProps = async (

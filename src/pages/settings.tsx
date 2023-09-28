@@ -125,7 +125,9 @@ const SettingsPage: NextPageWithLayout = () => {
 };
 
 SettingsPage.getLayout = (page: ReactElement) => (
-  <ApplicationLayout title="Settings">{page}</ApplicationLayout>
+  <ApplicationLayout page="Settings" title="Settings">
+    {page}
+  </ApplicationLayout>
 );
 
 export default SettingsPage;
