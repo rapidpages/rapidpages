@@ -162,4 +162,42 @@ export const componentRouter = createTRPCRouter({
         message: "No component found",
       });
     }),
+  getMyComponents: protectedProcedure
+    .input(
+      z.object({
+        pageIndex: z.number().default(0),
+        pageSize: z.number().default(10),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const componentCount = await ctx.db.component.count({
+        where: {
+          authorId: userId,
+        },
+      });
+
+      const components = await ctx.db.component.findMany({
+        where: {
+          authorId: userId,
+        },
+        include: {
+          revisions: true,
+        },
+        take: input.pageSize,
+        skip: input.pageSize * input.pageIndex,
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      return {
+        status: "success",
+        data: {
+          rows: components,
+          pageCount: Math.ceil(componentCount / input.pageSize),
+        },
+      };
+    }),
 });
