@@ -50,7 +50,7 @@ const config = {
       },
     },
   ],
-  ignorePatterns: ["public", "node_modules"],
+  ignorePatterns: ["public", "libs", "node_modules"],
 };
 
 module.exports = config;
