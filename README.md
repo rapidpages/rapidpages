@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.rapidpages.io?ref=github-readme" target="_blank">Website</a> • <a href="https://discord.gg/W6jYq46Frd" target="_blank">Discord</a>
+  <a href="https://www.rapidpages.com?ref=github-readme" target="_blank">Website</a> • <a href="https://discord.gg/W6jYq46Frd" target="_blank">Discord</a>
 </p>
 
 # Rapidpages
@@ -48,7 +48,7 @@ docker compose exec rapidpages npm run db:push
 
 ### Run Rapidpages Cloud
 
-You can start using [Rapidpages](https://www.rapidpages.io) today on the cloud for free. If you run out of credits, feel free to ping us on [discord](https://discord.gg/W6jYq46Frd).
+You can start using [Rapidpages](https://www.rapidpages.com) today on the cloud for free. If you run out of credits, feel free to ping us on [discord](https://discord.gg/W6jYq46Frd).
 
 ## Known Limitations
 
