@@ -3,10 +3,13 @@
 import * as React from "react";
 import { signIn } from "next-auth/react";
 import { cn } from "~/utils/utils";
+import { useRouter } from "next/router";
 
 type UserAuthFormProps = React.HTMLAttributes<HTMLDivElement>;
 
 export const UserAuthForm = ({ className, ...props }: UserAuthFormProps) => {
+  const router = useRouter();
+
   return (
     <div className={cn("mt-6 grid gap-6", className)} {...props}>
       {/* <button
@@ -131,7 +134,14 @@ export const UserAuthForm = ({ className, ...props }: UserAuthFormProps) => {
       <button
         type="button"
         className="inline-flex w-full items-center justify-center rounded-lg border bg-white px-5  text-center text-sm font-medium text-black hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-[#24292F]/50 dark:hover:bg-[#050708]/30 dark:focus:ring-slate-500"
-        onClick={() => signIn("github", { callbackUrl: "/" })}
+        onClick={() =>
+          signIn("github", {
+            callbackUrl:
+              typeof router.query?.redirect === "string"
+                ? router.query.redirect
+                : "/",
+          })
+        }
       >
         <svg
           width="46px"

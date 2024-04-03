@@ -55,6 +55,11 @@ model User {
     components Component[]
 }
 
+enum ComponentVisibility {
+    PUBLIC
+    PRIVATE
+}
+
 model Component {
     id     String @id @default(cuid())
     code   String
@@ -62,6 +67,8 @@ model Component {
 
     author   User?   @relation(fields: [authorId], references: [id])
     authorId String?
+
+    visibility ComponentVisibility @default(PUBLIC)
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt

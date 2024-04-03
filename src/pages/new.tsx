@@ -172,6 +172,7 @@ const NewPage: NextPageWithLayout = () => {
               <button
                 type="submit"
                 className="ml-1 inline-flex items-center rounded-md bg-indigo-600 px-2 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                disabled={isGenerating}
               >
                 <PaperAirplaneIcon className="h-4 w-4"></PaperAirplaneIcon>
               </button>
@@ -206,6 +207,7 @@ const NewPage: NextPageWithLayout = () => {
                           e.preventDefault();
                           handleGenerateComponent(item.description);
                         }}
+                        disabled={isGenerating}
                       >
                         <span className="absolute inset-0" aria-hidden="true" />
                         {item.name}
