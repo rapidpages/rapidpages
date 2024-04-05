@@ -68,6 +68,8 @@ const SettingsPage: NextPageWithLayout = () => {
                         <Image
                           className="h-12 w-12 rounded-full"
                           src="/images/person.jpg"
+                          width={48}
+                          height={48}
                           alt=""
                         />
                       )}

@@ -1,3 +1,4 @@
+import { ComponentVisibility } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -116,6 +117,97 @@ export const componentRouter = createTRPCRouter({
         },
       };
     }),
+  forkRevision: protectedProcedure
+    .input(
+      z.object({
+        revisionId: z.string(),
+        includePrevious: z.boolean().default(false).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { revisionId, includePrevious } = input;
+
+      const component = await ctx.db.component.findFirst({
+        where: {
+          revisions: {
+            some: {
+              id: revisionId,
+            },
+          },
+        },
+        include: {
+          revisions: true,
+        },
+      });
+
+      const revisionIndex = component?.revisions.findIndex(
+        (rev) => rev.id === revisionId,
+      );
+      if (!component || revisionIndex === undefined) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No revision found",
+        });
+      }
+
+      const revisions = (
+        includePrevious
+          ? component.revisions.slice(0, revisionIndex)
+          : [component.revisions[revisionIndex]]
+      )
+        .filter(function <T>(rev: T): rev is NonNullable<T> {
+          return rev !== undefined;
+        })
+        .map(({ code, prompt }) => ({ code, prompt }));
+
+      if (revisions.length < 1) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No revision found",
+        });
+      }
+
+      const userId = ctx.session.user.id;
+
+      // Users can fork public revisions or, if private, their own.
+      if (
+        component.visibility === ComponentVisibility.PRIVATE &&
+        component.authorId != userId
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You don't have the permission to fork this revision",
+        });
+      }
+
+      const newComponent = await ctx.db.component.create({
+        data: {
+          code: revisions[0]!.code,
+          authorId: userId,
+          prompt: revisions[0]!.prompt,
+          revisions: {
+            create: revisions,
+          },
+        },
+        include: {
+          revisions: true,
+        },
+      });
+
+      if (!newComponent) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Could not create component",
+        });
+      }
+
+      return {
+        status: "success",
+        data: {
+          revisionId: newComponent.revisions[0]!.id,
+        },
+      };
+    }),
   getComponent: publicProcedure
     .input(z.string())
     .query(async ({ ctx, input }) => {
@@ -197,6 +289,64 @@ export const componentRouter = createTRPCRouter({
         data: {
           rows: components,
           pageCount: Math.ceil(componentCount / input.pageSize),
+        },
+      };
+    }),
+});
+
+/**
+ * componentImportRouter allows to create a component from arbitrary code blocks.
+ * In most cases this would be a priviledged endpoint that only admins can use.
+ *
+ * @todo Expose this via API (public or private TBD)
+ * and perhaps implement ad-hoc procedure rather than use protectedProcedure.
+ */
+export const componentImportRouter = createTRPCRouter({
+  importComponent: protectedProcedure
+    .input(
+      z.object({
+        /* @todo set max length ? */
+        code: z.string(),
+        description: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      const { code, description } = input;
+
+      // @todo validate code
+      if (!code /* || !isValid(code) */) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid code snippet",
+        });
+      }
+
+      const component = await ctx.db.component.create({
+        data: {
+          code,
+          authorId: null,
+          prompt: description,
+          revisions: {
+            create: {
+              code,
+              prompt: description,
+            },
+          },
+        },
+      });
+
+      if (!component) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Could not create component",
+        });
+      }
+
+      return {
+        status: "success",
+        data: {
+          componentId: component.id,
         },
       };
     }),

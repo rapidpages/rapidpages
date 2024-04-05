@@ -28,10 +28,11 @@ git clone https://github.com/rapidpages/rapidpages.git && cd rapidpages
 
 Edit the `.env.example` file to ensure the following values are set:
 
+- `GITHUB_CLIENT_SECRET` & `GITHUB_CLIENT_ID`: you need to [create a GitHub oauth application](https://github.com/settings/applications/new) to be able to login. For `localhost` use `http://localhost:3000` and `http://localhost:3000/api/auth/callback/github` for Homepage and Authorization callback URL.
 - `OPENAI_API_KEY`: you need to get a key from [OpenAI](https://platform.openai.com/)
-- `GITHUB_CLIENT_SECRET` & `GITHUB_CLIENT_ID`: you need to create a GitHub oauth application to be able to login. Follow [this guide](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app) from GitHub.
 
 #### Run Rapidpages on Host
+
 Create the database & run the application
 
 ```bash

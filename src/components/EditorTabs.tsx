@@ -7,11 +7,15 @@ import { PlusIcon } from "@heroicons/react/24/solid";
 import { ReactLogo } from "~/components/ReactLogo";
 import { PagePanel } from "~/components/PagePanel";
 import { CodePanel } from "~/components/CodePanel";
-import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowUpTrayIcon,
+  DocumentDuplicateIcon,
+} from "@heroicons/react/24/outline";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { env } from "~/env.mjs";
-// import { PublishButtonGroup } from "@/components/PublishButtonGroup";
+import router from "next/router";
+import { api } from "~/utils/api";
 
 export const EditorTabs = ({
   code,
@@ -27,6 +31,8 @@ export const EditorTabs = ({
   const activeTab = tabs.find((tab) => tab.active);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const activeTabIndex = activeTab ? tabs.indexOf(activeTab) + 1 : 0;
+
+  const forkRevision = api.component.forkRevision.useMutation();
 
   return (
     <Tab.Group selectedIndex={selectedIndex}>
@@ -82,15 +88,46 @@ export const EditorTabs = ({
             )}
           </Tab>
         </Tab.List>
-        <div className="ml-auto flex items-center">
+        <div className="ml-auto flex items-center gap-2">
           <Link
             href="/new"
             type="button"
-            className="mr-2 inline-flex flex-1 justify-center rounded-md bg-white px-2.5 py-1.5 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            className="inline-flex flex-1 justify-center rounded-md bg-white px-2.5 py-1.5 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
           >
             <PlusIcon className="-ml-0.5 mr-1 h-5 w-5" aria-hidden="true" />
             <span>New</span>
           </Link>
+
+          <button
+            className="inline-flex flex-1 items-center rounded-md bg-indigo-600 px-2.5 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+            onClick={async (e) => {
+              e.preventDefault();
+              try {
+                const result = await forkRevision.mutateAsync({
+                  revisionId,
+                });
+
+                if (result.status === "error") {
+                  throw new Error("Failed to fork revision");
+                }
+                await router.push(`/r/${result.data.revisionId}`);
+                return;
+              } catch (e) {
+                if (e instanceof Error && e.message === "UNAUTHORIZED") {
+                  router.push(`/login?redirect=/r/${revisionId}`);
+                  return;
+                }
+                toast.error("Failed to fork revision");
+                return;
+              }
+            }}
+          >
+            <DocumentDuplicateIcon
+              className="mr-2 h-4 w-4"
+              aria-hidden="true"
+            />
+            <span>Fork</span>
+          </button>
 
           <button
             className="inline-flex flex-1 items-center rounded-md bg-indigo-600 px-2.5 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
@@ -108,10 +145,7 @@ export const EditorTabs = ({
                 );
             }}
           >
-            <ArrowUpTrayIcon
-              className="mr-2 h-4 w-4"
-              aria-hidden="true"
-            ></ArrowUpTrayIcon>
+            <ArrowUpTrayIcon className="mr-2 h-4 w-4" aria-hidden="true" />
             <span>Share</span>
           </button>
         </div>
