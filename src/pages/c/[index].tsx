@@ -40,7 +40,9 @@ const ComponentPage: NextPageWithLayout<
                 className="flex h-full flex-col pr-3"
               >
                 <EditorTabs code={component.code} revisionId={lastRevisionId} />
-                {session && <Chat revisionId={lastRevisionId} />}
+                {session && session.user.id === component.authorId && (
+                  <Chat revisionId={lastRevisionId} />
+                )}
               </Panel>
             </PanelGroup>
           </div>

@@ -171,8 +171,8 @@ export const componentRouter = createTRPCRouter({
 
       // Users can fork public revisions or, if private, their own.
       if (
-        component.visibility === ComponentVisibility.PRIVATE &&
-        component.authorId != userId
+        component.authorId != userId &&
+        component.visibility === ComponentVisibility.PRIVATE
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -221,6 +221,17 @@ export const componentRouter = createTRPCRouter({
       });
 
       if (component) {
+        const userId = ctx.session?.user.id;
+
+        if (
+          component.authorId !== userId &&
+          component.visibility === ComponentVisibility.PRIVATE
+        ) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+          });
+        }
+
         return component;
       }
 
@@ -246,6 +257,17 @@ export const componentRouter = createTRPCRouter({
       });
 
       if (component) {
+        const userId = ctx.session?.user.id;
+
+        if (
+          component.authorId !== userId &&
+          component.visibility === ComponentVisibility.PRIVATE
+        ) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+          });
+        }
+
         return component;
       }
 
