@@ -1,6 +1,8 @@
 import OpenAI from "openai";
+import { OpenAIStream, StreamingTextResponse } from "ai";
 import { env } from "~/env.mjs";
 import { escapeRegExp } from "~/utils/utils";
+import { id } from "date-fns/locale";
 
 const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
@@ -129,6 +131,36 @@ export async function reviseComponent(prompt: string, code: string) {
   return newCode;
 }
 
+export async function generateNewComponentStreaming(prompt: string) {
+  const response = await openai.chat.completions.create({
+    stream: true,
+    model: openaiModelName,
+    messages: [
+      {
+        role: "system",
+        content: [
+          `You are a helpful assistant. You're tasked with creating a website section using exclusively JSX and tailwind.` +
+            `Do not use any dependency or imports.` +
+            `Do not use dynamic data. Use placeholders as data. Do not use props.` +
+            `Be concise and only respond with valid JSX directly. Start with <div>`,
+        ].join("\n"),
+      } as const,
+      {
+        role: "user",
+        content: [`Request:\n` + `\`\`\`\n${prompt}\n\`\`\``].join("\n"),
+      } as const,
+    ],
+    temperature: 0,
+    top_p: 1,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+    max_tokens: 2000,
+    n: 1,
+  });
+
+  return OpenAIStream(response);
+}
+
 export async function generateNewComponent(prompt: string) {
   const completion = await openai.chat.completions.create({
     model: openaiModelName,
@@ -141,7 +173,7 @@ export async function generateNewComponent(prompt: string) {
           "Only import React as a dependency.",
           "Be concise and only reply with code.",
         ].join("\n"),
-      },
+      } as const,
       {
         role: "user",
         content: [
@@ -151,7 +183,7 @@ export async function generateNewComponent(prompt: string) {
           `- Do not have any dynamic data. Use placeholders as data. Do not use props.`,
           `- Write only a single component.`,
         ].join("\n"),
-      },
+      } as const,
     ],
     temperature: 0,
     top_p: 1,

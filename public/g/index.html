@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Rapidpages</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@canary",
+          "react-dom/client": "https://esm.sh/react-dom@canary/client",
+          "react-server-dom-webpack/client": "https://esm.sh/react-server-dom-webpack@canary/client"
+        }
+      }
+    </script>
+    <script>
+      // HACK: map webpack resolution to native ESM
+      // @ts-expect-error Property '__webpack_require__' does not exist on type 'Window & typeof globalThis'.
+      window.__webpack_require__ = async (id) => {
+        return import(id);
+      };
+    </script>
+    <script type="module" src="./_client.js"></script>
+  </body>
+</html>
