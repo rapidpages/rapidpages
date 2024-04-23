@@ -9,16 +9,32 @@
     <script type="importmap">
       {
         "imports": {
-          "react": "https://esm.sh/react@canary",
-          "react-dom/client": "https://esm.sh/react-dom@canary/client",
-          "react-server-dom-webpack/client": "https://esm.sh/react-server-dom-webpack@canary/client"
+          "react": "https://esm.sh/react@18.3.0-canary-14898b6a9-20240318?dev",
+          "react-dom/client": "https://esm.sh/react-dom@18.3.0-canary-14898b6a9-20240318/client?dev",
+          "react-server-dom-webpack/client": "https://esm.sh/react-server-dom-webpack@0.0.0-experimental-41b4714f1-20230328/client?dev"
         }
       }
     </script>
     <script>
+      // {
+      //   "imports": {
+      //     "react": "https://esm.sh/react@canary?dev",
+      //     "react-dom/client": "https://esm.sh/react-dom@canary/client?dev",
+      //     "react-server-dom-webpack/client": "https://esm.sh/react-server-dom-webpack@canary/client?dev"
+      //   }
+      // }
+      //  {
+      //   "imports": {
+      //     "react": "https://esm.sh/react@18.3.0-canary-14898b6a9-20240318?dev",
+      //     "react-dom/client": "https://esm.sh/react-dom@18.3.0-canary-14898b6a9-20240318/client?dev",
+      //     "react-server-dom-webpack/client": "https://esm.sh/react-server-dom-webpack@0.0.0-experimental-41b4714f1-20230328/client?dev"
+      //   }
+      // }
+
       // HACK: map webpack resolution to native ESM
       // @ts-expect-error Property '__webpack_require__' does not exist on type 'Window & typeof globalThis'.
-      window.__webpack_require__ = async (id) => {
+      window.__webpack_require__ = (id) => {
+        console.log("trying to import " + id);
         return import(id);
       };
     </script>
