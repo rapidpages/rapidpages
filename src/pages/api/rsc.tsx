@@ -1,66 +1,68 @@
+import vm from "node:vm";
+import * as ts from "typescript";
 import { type NextApiHandler } from "next";
+import { createElement } from "react";
+import * as ReactServerDOM from "react-server-dom-webpack/server.node";
 import { generateNewComponentStreaming } from "~/server/openai";
-import { createElement, Suspense } from "react";
-import * as ReactServerDom from "react-server-dom-webpack/server.browser";
 // @todo figure out how to use this from the ai package.. the exports map returns exports.rsc.import rather than exports.rsc.react-server
 import { createStreamableUI } from "~/utils/ai";
-import { now } from "next-auth/client/_utils";
 
 export const config = {
-  runtime: "edge",
-  unstable_allowDynamic: ["."],
+  // @todo this should be controlled by an environment variable.
+  // The same variable is used to respond with a stream or a regular response when generation is complete.
+  supportsResponseStreaming: true,
 };
 
-const clientComponentsMap = {};
+// JSX is transformed to JSX_FACTORY_NAME() calls.
+const JSX_FACTORY_NAME = "___$rs$jsx";
 
-const handler: NextApiHandler = async (request) => {
-  const prompt = new URL(request.url).searchParams.get("p");
+type ClientComponentId = string;
+type ClientComponentBundlePath = string;
+type ClientComponentNamedExportName = string;
+// A map of ClientComponentId and their client component metadata
+// which will be used to fetch and mount the component on the client.
+type ClientComponentsMap = Record<
+  ClientComponentId,
+  {
+    id: ClientComponentBundlePath;
+    name: ClientComponentNamedExportName;
+    chunks: [];
+    async: true;
+  }
+>;
+
+const handler: NextApiHandler = async (request, response) => {
+  const prompt = request.query.p;
 
   if (!prompt) {
-    return new Response("Missing prompt", {
-      status: 400,
-      statusText: "Missing prompt",
-    });
+    return response.status(400).end();
   }
 
-  const reactTree = <></>;
+  const clientComponentsMap: ClientComponentsMap = {};
 
-  const uiStream = createStreamableUI(reactTree);
+  const uiStream = createStreamableUI(<></>);
 
-  const reactStream = ReactServerDom.renderToReadableStream(
+  const { pipe } = ReactServerDOM.renderToPipeableStream(
     uiStream.value,
     clientComponentsMap,
   );
+
+  // This doesn't seem strictly necessary.
+  response.setHeader("content-type", "text/x-component");
+
+  // Respond immediately.
+  pipe(response);
+
   const decoder = new TextDecoder();
+
+  // (test) simulate LLM stream.
+  const aiStream = getTestAIStream();
   // const aiStream = await generateNewComponentStreaming(prompt);
 
-  const aiStream = new ReadableStream({
-    async start(controller) {
-      const encoder = new TextEncoder();
-      // Push some data into the stream
-      const chunksNo = 5;
-      const len = Math.floor(source.length / chunksNo);
-      const chunks = new Array(chunksNo)
-        .fill(null)
-        .map((_, i) =>
-          source.slice(
-            i * len,
-            i === chunksNo - 1 ? source.length : (i + 1) * len,
-          ),
-        );
-
-      for (const chunk of chunks) {
-        await sleep(1000);
-        controller.enqueue(encoder.encode(chunk));
-      }
-
-      controller.close();
-    },
-  });
-
   (async () => {
-    let jsxCode = "";
     const reader = aiStream.getReader();
+
+    let jsxCode = "";
     let flushedAt = 0;
 
     while (true) {
@@ -76,12 +78,17 @@ const handler: NextApiHandler = async (request) => {
         }
       }
 
-      const reactTree = await evaluate(jsxCode);
-
-      if (reactTree) {
-        // console.log(reactTree);
-        uiStream.update(reactTree);
-        flushedAt = now;
+      try {
+        const reactTree = await evaluate(
+          transformJsx(jsxCode),
+          clientComponentsMap,
+        );
+        if (reactTree) {
+          uiStream.update(reactTree);
+          flushedAt = now;
+        }
+      } catch (error) {
+        continue;
       }
 
       if (done) {
@@ -92,42 +99,79 @@ const handler: NextApiHandler = async (request) => {
 
     reader.releaseLock();
   })();
-
-  // (async () => {
-  //   let jsxCode = "";
-  //   const reader = aiStream.getReader();
-  //   const flushedAt = 0;
-
-  //   while (true) {
-  //     const { done, value } = await reader.read();
-
-  //     if (done) {
-  //       uiStream.done();
-  //       break;
-  //     }
-
-  //     jsxCode += decoder.decode(value);
-  //     jsxCode = jsxCode.replace(/jsx/, "").replace(/```\s*$/, "");
-
-  //     const reactTree = await evaluate(jsxCode);
-
-  //     if (reactTree) {
-  //       // console.log(reactTree);
-  //       uiStream.update(reactTree);
-  //     }
-  //   }
-
-  //   reader.releaseLock();
-  // })();
-
-  return new Response(reactStream, {
-    headers: {
-      "content-type": "text/x-component",
-    },
-  });
 };
 
 export default handler;
+
+// A map of supported design system components.
+// These are compiled React Client Components esported as named export
+// eg export const Counter = () => {...}
+const availableClientComponents = {
+  Counter: createTestClientComponent("__client.Counter"),
+};
+function createTestClientComponent(id: ClientComponentId) {
+  function Component() {}
+  Component.$$typeof = Symbol.for("react.client.reference");
+  Component.$$id = id;
+  Component.$$path = "/g/test.js";
+  return Component;
+}
+
+async function evaluate(
+  code: string,
+  clientComponentsMap: ClientComponentsMap,
+) {
+  const script = new vm.Script(code);
+
+  const context = new Proxy(
+    {
+      [JSX_FACTORY_NAME]: createElement,
+    },
+    {
+      get(target, prop, receiver) {
+        if (typeof prop === "string" && prop in availableClientComponents) {
+          const component =
+            availableClientComponents[
+              prop as keyof typeof availableClientComponents
+            ];
+
+          if (component.$$id in clientComponentsMap === false) {
+            // [id, chunks, name, async]
+            // clientComponentsMap[t] = [`/g/test.js`, [], t, true];
+            clientComponentsMap[component.$$id] = {
+              id: component.$$path,
+              // Use the detected export name
+              name: prop,
+              // Turn off chunks. This is webpack-specific
+              chunks: [],
+              // Use an async import for the built resource in the browser
+              async: true,
+            };
+          }
+
+          return component;
+        }
+
+        return Reflect.get(target, prop, receiver);
+      },
+    },
+  );
+
+  // @todo figure out how to sandbox, limiting what can be imported by the evaluated code.
+  vm.createContext(context);
+
+  return script.runInContext(context);
+}
+
+function transformJsx(jsx: string): string {
+  return ts.transpileModule(jsx, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      jsx: "react",
+      jsxFactory: JSX_FACTORY_NAME,
+    },
+  }).outputText;
+}
 
 const stateful = `<Counter />`;
 
@@ -142,134 +186,36 @@ const source = `
   </div>
 </div>`.trim();
 
+function getTestAIStream({
+  chunksAmount = 5,
+  slowdown = 1000,
+}: {
+  chunksAmount?: number;
+  slowdown?: number;
+} = {}) {
+  return new ReadableStream({
+    async start(controller) {
+      const encoder = new TextEncoder();
+      const len = Math.floor(source.length / chunksAmount);
+      const chunks = new Array(chunksAmount)
+        .fill(null)
+        .map((_, i) =>
+          source.slice(
+            i * len,
+            i === chunksAmount - 1 ? source.length : (i + 1) * len,
+          ),
+        );
+
+      for (const chunk of chunks) {
+        await sleep(slowdown);
+        controller.enqueue(encoder.encode(chunk));
+      }
+
+      controller.close();
+    },
+  });
+}
+
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-async function evaluate(code: string) {
-  const evaluateCode = (code: string, createElement) => {
-    // return function App() {
-    //   return eval(code);
-    // };
-    return eval(code);
-  };
-
-  try {
-    const res = await fetch("http://localhost:3000/api/transform", {
-      method: "POST",
-      headers: {
-        accept: "text/plain",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        code,
-      }),
-    });
-
-    if (!res.ok) {
-      throw new Error("next");
-    }
-
-    const transformed = await res.text();
-
-    return evaluateCode(
-      transformed.replace(
-        /createElement\(([A-Z][^,)]+)/g,
-        'createElement("__client.$1"',
-      ),
-      createElementWithClient,
-    );
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
-}
-
-const clientComponents = {};
-
-function createElementWithClient(t, ...rest) {
-  if (typeof t === "string" && t.startsWith("__client.")) {
-    if (!clientComponents[t]) {
-      function Component() {}
-      Component.$$typeof = Symbol.for("react.client.reference");
-      Component.$$id = t;
-      clientComponents[t] = Component;
-      // [id, chunks, name, async]
-      // clientComponentsMap[t] = [`/g/test.js`, [], t, true];
-      clientComponentsMap[t] = {
-        id: `/g/test.js`,
-        // Use the detected export name
-        name: t.slice("__client.".length),
-        // Turn off chunks. This is webpack-specific
-        chunks: [],
-        // Use an async import for the built resource in the browser
-        async: true,
-      };
-    }
-    t = clientComponents[t];
-    // return createElement(Suspense, null, createElement(t, ...rest));
-  }
-
-  return createElement(t, ...rest);
-}
-
-// Simulate ai stream
-// const aiStream = new ReadableStream({
-//   async start(controller) {
-//     // Push some data into the stream
-//     const len = Math.floor(source.length / 5);
-//     const chunks = new Array(5)
-//       .fill(null)
-//       .map((_, i) =>
-//         source.slice(i * len, i === 4 ? source.length : (i + 1) * len),
-//       );
-
-//     for (const chunk of chunks) {
-//       await sleep(1000);
-//       controller.enqueue(chunk);
-//     }
-
-//     controller.close();
-//   },
-// });
-// Simulate streaming rendering
-// (async () => {
-//   const len = Math.floor(source.length / 5);
-//   const chunks = new Array(5)
-//     .fill(null)
-//     .map((_, i) =>
-//       source.slice(i * len, i === 4 ? source.length : (i + 1) * len),
-//     );
-// let jsxCode = "";
-// let transformed = "";
-
-// for (const chunk of chunks) {
-//   await sleep(1000);
-//   jsxCode += chunk;
-
-//   try {
-//     const res = await fetch("http://localhost:3000/api/transform", {
-//       method: "POST",
-//       headers: {
-//         accept: "text/plain",
-//         "content-type": "application/json",
-//       },
-//       body: JSON.stringify({
-//         code: jsxCode,
-//       }),
-//     });
-
-//     if (!res.ok) {
-//       throw new Error("next");
-//     }
-//     transformed = await res.text();
-//     reactTree = evaluateCode(transformed, createElement);
-//   } catch (error) {
-//     console.error(error);
-//     continue;
-//   }
-
-//   uiStream.update(<pre>{reactTree}</pre>);
-// }
-
-// uiStream.done();

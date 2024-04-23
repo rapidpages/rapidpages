@@ -1,4 +1,4 @@
-import { createElement, useState, Component } from "react";
+import { createElement, useState } from "react";
 
 export function Counter({ children, initialCount = 0 }) {
   const [count, setCount] = useState(initialCount);
@@ -25,4 +25,3 @@ Counter.$$typeof = Symbol.for("react.client.reference");
 Counter.$$id = "__client.Counter";
 Counter.displayName = "Counter";
 // export const __esModule = true;
-// export default Counter;
