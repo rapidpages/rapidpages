@@ -4,8 +4,10 @@ import { type NextApiHandler } from "next";
 import { createElement } from "react";
 import * as ReactServerDOM from "react-server-dom-webpack/server.node";
 import { generateNewComponentStreaming } from "~/server/openai";
+import { TransformStream, ReadableStream } from "node:stream/web";
 // @todo figure out how to use this from the ai package.. the exports map returns exports.rsc.import rather than exports.rsc.react-server
 import { createStreamableUI } from "~/utils/ai";
+import { pipeline, Transform } from "node:stream";
 
 export const config = {
   // @todo this should be controlled by an environment variable.
@@ -19,17 +21,19 @@ const JSX_FACTORY_NAME = "___$rs$jsx";
 type ClientComponentId = string;
 type ClientComponentBundlePath = string;
 type ClientComponentNamedExportName = string;
-// A map of ClientComponentId and their client component metadata
-// which will be used to fetch and mount the component on the client.
-type ClientComponentsMap = Record<
-  ClientComponentId,
-  {
-    id: ClientComponentBundlePath;
-    name: ClientComponentNamedExportName;
-    chunks: [];
-    async: true;
-  }
->;
+// ClientComponentMetadata are used to fetch and mount the component on the client.
+// Note for future reference:
+//     it seems that newer version of `react-server-dom-webpack`
+//     use an array format rather than objects:
+//     [id, chunks, name, async]
+type ClientComponentMetadata = {
+  id: ClientComponentBundlePath;
+  name: ClientComponentNamedExportName;
+  chunks: [];
+  async: true;
+};
+
+type ClientComponentsMap = Record<ClientComponentId, ClientComponentMetadata>;
 
 const handler: NextApiHandler = async (request, response) => {
   const prompt = request.query.p;
@@ -50,33 +54,54 @@ const handler: NextApiHandler = async (request, response) => {
   // This doesn't seem strictly necessary.
   response.setHeader("content-type", "text/x-component");
 
-  // Respond immediately.
-  pipe(response);
-
+  let jsxCode = "";
   const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+
+  // Transform the RSC payload stream to a stream of
+  // { rsc, jsx } so that the client gets both the RSC payload
+  // and the raw JSX string to render the code to copy/paste
+  const transform = new Transform({
+    transform(chunk, encoding, callback) {
+      const rsc = decoder.decode(chunk);
+
+      callback(
+        null,
+        encoder.encode(
+          JSON.stringify({
+            rsc,
+            jsx: jsxCode,
+            // @todo extract external components imports and add them here
+          }),
+        ),
+      );
+    },
+  });
+
+  pipe(transform);
+  transform.pipe(response);
 
   // (test) simulate LLM stream.
   const aiStream = getTestAIStream();
   // const aiStream = await generateNewComponentStreaming(prompt);
 
+  // Consume the aiStream:
+  // - Accumulate JSX
+  // - Parse and evaluate it to React
+  // - update the uiStream (flush to the client)
   (async () => {
     const reader = aiStream.getReader();
 
-    let jsxCode = "";
-    let flushedAt = 0;
-
     while (true) {
       const { done, value } = await reader.read();
-      const now = Date.now();
 
-      if (!done) {
-        jsxCode += decoder.decode(value);
-        jsxCode = jsxCode.replace(/jsx/, "").replace(/```\s*$/, "");
-
-        if (flushedAt > 0 && now - flushedAt < 1000) {
-          continue;
-        }
+      if (done) {
+        uiStream.done();
+        break;
       }
+
+      jsxCode += decoder.decode(value);
+      jsxCode = jsxCode.replace(/jsx/, "").replace(/```\s*$/, "");
 
       try {
         const reactTree = await evaluate(
@@ -85,19 +110,11 @@ const handler: NextApiHandler = async (request, response) => {
         );
         if (reactTree) {
           uiStream.update(reactTree);
-          flushedAt = now;
         }
       } catch (error) {
         continue;
       }
-
-      if (done) {
-        uiStream.done();
-        break;
-      }
     }
-
-    reader.releaseLock();
   })();
 };
 
