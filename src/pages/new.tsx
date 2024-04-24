@@ -1,18 +1,111 @@
 import { useSession } from "next-auth/react";
-import { useState, type ReactElement, useRef, Fragment } from "react";
+import { useState, type ReactElement, useRef, useEffect } from "react";
 import { ApplicationLayout } from "~/components/AppLayout";
 import {
   ChevronRightIcon,
   CommandLineIcon,
   PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
-import { Dialog, Transition } from "@headlessui/react";
-import { Spinner } from "~/components/Spinner";
-import Image from "next/image";
-import { api } from "~/utils/api";
 import toast from "react-hot-toast";
 import router from "next/router";
 import { type NextPageWithLayout } from "./_app";
+import { Component } from "~/components/Component";
+import { flushSync } from "react-dom";
+
+type State =
+  | {
+      status: "idle";
+    }
+  | {
+      status: "generating";
+      prompt: string;
+      code: {
+        source: string;
+        rsc: string;
+      };
+    };
+
+const NewPage: NextPageWithLayout = () => {
+  const { data: session } = useSession();
+  const [state, setState] = useState<State>({ status: "idle" });
+
+  const handleGenerateComponent = async (prompt: string) => {
+    if (!session) {
+      return router.push("/login");
+    }
+
+    if (state.status === "generating") return;
+
+    flushSync(() => {
+      setState({
+        status: "generating",
+        prompt,
+        code: { source: "", rsc: "" },
+      });
+    });
+
+    fetch("/api/rsc?p=" + prompt)
+      .then(async (response) => {
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error("No reader");
+        }
+
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            // flushSync(() => {
+            setState((current) => ({
+              status: "generating",
+              prompt,
+              code: {
+                source:
+                  current.status === "generating" ? current.code.source : "",
+                rsc: "[done]",
+              },
+            }));
+            // });
+            return;
+          }
+
+          try {
+            const json = JSON.parse(decoder.decode(value));
+            console.log(json.rsc);
+            flushSync(() => {
+              setState((current) => ({
+                status: "generating",
+                code: json,
+                prompt,
+              }));
+            });
+          } catch {}
+        }
+      })
+      .catch(() => {
+        setState({ status: "idle" });
+        toast.error("Failed to generate component");
+        return;
+      });
+  };
+
+  if (state.status === "generating") {
+    return (
+      <Component
+        component={{
+          authorId: null,
+          revisions: [],
+        }}
+        code={state.code}
+        revisionId={""}
+      />
+    );
+  }
+
+  return <NewForm handleGenerateComponent={handleGenerateComponent} />;
+};
 
 const items = [
   {
@@ -50,41 +143,12 @@ const loadingItems = [
   },
 ];
 
-const NewPage: NextPageWithLayout = () => {
-  const [isGenerating, setIsGenerating] = useState(false);
+const NewForm = ({ handleGenerateComponent }) => {
   const formRef = useRef<HTMLFormElement>(null);
   const [input, setInput] = useState<string>("");
 
-  const generateComponent = api.component.createComponent.useMutation();
-  const { data: session } = useSession();
   const randomItem =
     loadingItems[Math.floor(Math.random() * loadingItems.length)]!;
-
-  const handleGenerateComponent = async (prompt: string) => {
-    if (!session) {
-      return router.push("/login");
-    }
-
-    // Prevent double submission
-    if (isGenerating) return;
-
-    setIsGenerating(true);
-
-    try {
-      const result = await generateComponent.mutateAsync(prompt);
-
-      if (result.status === "error") {
-        throw new Error("Failed to generate component");
-      }
-      const { componentId } = result.data;
-      await router.push(`/c/${componentId}`);
-      return;
-    } catch (e) {
-      setIsGenerating(false);
-      toast.error("Failed to generate component");
-      return;
-    }
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -100,67 +164,6 @@ const NewPage: NextPageWithLayout = () => {
     <div className="flex h-full flex-grow flex-col">
       <div className="flex min-w-0 flex-grow bg-neutral-100">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <Transition appear show={isGenerating} as={Fragment}>
-            <Dialog as="div" className="relative z-10" onClose={() => {}}>
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0"
-                enterTo="opacity-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100"
-                leaveTo="opacity-0"
-              >
-                <div className="fixed inset-0 bg-black bg-opacity-25" />
-              </Transition.Child>
-
-              <div className="fixed inset-0 overflow-y-auto">
-                <div className="flex min-h-full items-center justify-center p-4 text-center">
-                  <Transition.Child
-                    as={Fragment}
-                    enter="ease-out duration-300"
-                    enterFrom="opacity-0 scale-95"
-                    enterTo="opacity-100 scale-100"
-                    leave="ease-in duration-200"
-                    leaveFrom="opacity-100 scale-100"
-                    leaveTo="opacity-0 scale-95"
-                  >
-                    <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                      <Dialog.Title>
-                        <Spinner
-                          label="Generating..."
-                          className="text-md font-medium text-gray-600"
-                        />
-                      </Dialog.Title>
-                      <div className="mt-2 justify-center">
-                        <p className="text-center text-sm text-gray-500">
-                          Please be patient while things are being generated.
-                        </p>
-                        <Image
-                          src={randomItem.image}
-                          alt="Compiling"
-                          width={300}
-                          height={300}
-                          className="mx-auto mt-8"
-                        />
-                      </div>
-                      <p className="mt-1 text-center text-xs text-gray-500">
-                        {`${randomItem.subtext} (`}
-                        <a
-                          href={`https://xkcd.com/${randomItem.xkcd}`}
-                          target="_blank noreferer"
-                          className="text-indigo-600 hover:text-indigo-500"
-                        >
-                          xkcd
-                        </a>
-                        )
-                      </p>
-                    </Dialog.Panel>
-                  </Transition.Child>
-                </div>
-              </div>
-            </Dialog>
-          </Transition>
           <form onSubmit={handleSubmit} ref={formRef}>
             <div className="relative mx-5 my-64 flex items-center sm:mx-10 md:mx-32">
               <input
@@ -172,7 +175,6 @@ const NewPage: NextPageWithLayout = () => {
               <button
                 type="submit"
                 className="ml-1 inline-flex items-center rounded-md bg-indigo-600 px-2 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                disabled={isGenerating}
               >
                 <PaperAirplaneIcon className="h-4 w-4"></PaperAirplaneIcon>
               </button>
@@ -207,7 +209,6 @@ const NewPage: NextPageWithLayout = () => {
                           e.preventDefault();
                           handleGenerateComponent(item.description);
                         }}
-                        disabled={isGenerating}
                       >
                         <span className="absolute inset-0" aria-hidden="true" />
                         {item.name}

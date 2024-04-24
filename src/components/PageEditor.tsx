@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useEffect, useRef, useState } from "react";
 import { compileTypescript } from "~/utils/compiler";
 
 interface MyProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -7,38 +7,48 @@ interface MyProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const PageEditor = ({ code }: MyProps) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [dom, setDom] = useState<string | undefined>(undefined);
   const svgRef = useRef<SVGSVGElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-  useEffect(() => {
-    // Compile and render the page
-    const compileCode = async () => {
-      const compiledCode = await compileTypescript(code);
-      setDom(compiledCode);
-    };
+  const bufferedCodeBeforeLoadedRef = useRef<string | null>(code);
 
-    // We resize the canvas to fit the screen. This is not ideal, but it works for now.
-    const handleResize = () => {
-      const iframe = iframeRef.current;
-      if (!iframe) return;
-      const { contentWindow } = iframeRef.current;
-      if (contentWindow) {
-        const { documentElement } = contentWindow.document;
-        const width = documentElement.clientWidth;
-        const height = documentElement.clientHeight;
-        setDimensions({ width, height });
-      }
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
+  useLayoutEffect(() => {
+    if (bufferedCodeBeforeLoadedRef.current == null) {
+      // Done buffering, iframe.onLoad has fired so we can post single chunks.
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ type: "rsc", value: code, done: code === "[done]" }),
+      );
+    } else {
+      // iframe.onLoad hasn't fired yet so we should buffer.
+      bufferedCodeBeforeLoadedRef.current += `${code}`;
+    }
 
-    // Compile the code
-    compileCode();
+    // if (code === "[done]") {
+    //   iframeRef.current?.contentWindow?.postMessage(
+    //     JSON.stringify({ type: "rsc", value: code, done: code === "[done]" }),
+    //   );
+    // } else {
+    //   bufferedCodeBeforeLoadedRef.current += `${code}\n`;
+    // }
 
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
+    // // We resize the canvas to fit the screen. This is not ideal, but it works for now.
+    // const handleResize = () => {
+    //   const iframe = iframeRef.current;
+    //   if (!iframe) return;
+    //   const { contentWindow } = iframeRef.current;
+    //   if (contentWindow) {
+    //     const { documentElement } = contentWindow.document;
+    //     const width = documentElement.clientWidth;
+    //     const height = documentElement.clientHeight;
+    //     setDimensions({ width, height });
+    //   }
+    // };
+    // handleResize();
+    // window.addEventListener("resize", handleResize);
+
+    // return () => {
+    //   window.removeEventListener("resize", handleResize);
+    // };
   }, [code]);
 
   const handleScroll = (event: React.WheelEvent) => {
@@ -56,13 +66,25 @@ export const PageEditor = ({ code }: MyProps) => {
         onWheel={handleScroll}
       >
         <iframe
+          onLoad={() => {
+            // Flush buffered code
+            const value = bufferedCodeBeforeLoadedRef.current;
+            console.log("onLoad", value);
+            iframeRef.current?.contentWindow?.postMessage(
+              JSON.stringify({
+                type: "rsc",
+                value,
+              }),
+            );
+            bufferedCodeBeforeLoadedRef.current = null;
+          }}
           width="100%"
           height="100%"
           tabIndex={-1}
           title="The editor's rendered HTML document"
-          srcDoc={dom}
+          src="/g/index.html"
           ref={iframeRef}
-          className="pointer-events-none mx-auto my-0 block w-full min-w-[769] overflow-hidden border-0"
+          className="mx-auto my-0 block w-full min-w-[769] overflow-hidden border-0"
         />
         <div className="pointer-events-none absolute inset-y-0 flex max-w-full">
           <svg

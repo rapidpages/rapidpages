@@ -1,15 +1,8 @@
+import { startTransition } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  createFromFetch,
-  createFromReadableStream,
-} from "react-server-dom-webpack/client";
+import { createFromReadableStream } from "react-server-dom-webpack/client";
 
 const root = createRoot(document.getElementById("root"));
-
-// createFromFetch(fetch("/api/rsc" + window.location.search)).then((comp) => {
-//   console.log(comp);
-//   root.render(comp);
-// });
 
 let onChunk = (chunk) => {};
 let onDone = () => {};
@@ -24,30 +17,22 @@ const rscStream = new ReadableStream({
   },
 });
 
-fetch("/api/rsc" + window.location.search).then(async (response) => {
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error("No reader");
-  }
+window.addEventListener("message", (event) => {
+  if (event.origin !== window.origin) return;
 
-  const decoder = new TextDecoder();
+  try {
+    const { type, done, value } = JSON.parse(event.data);
 
-  createFromReadableStream(rscStream).then((comp) => {
-    root.render(comp);
-  });
-
-  while (true) {
-    const { done, value } = await reader.read();
-
-    if (done) {
-      onDone();
+    if (type !== "rsc" || done) {
       return;
     }
 
-    try {
-      const json = JSON.parse(decoder.decode(value));
-      console.log(json);
-      onChunk(json.rsc);
-    } catch {}
-  }
+    onChunk(value);
+  } catch {}
+});
+
+createFromReadableStream(rscStream).then((ui) => {
+  startTransition(() => {
+    root.render(ui);
+  });
 });

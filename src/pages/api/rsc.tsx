@@ -7,12 +7,14 @@ import { generateNewComponentStreaming } from "~/server/openai";
 import { TransformStream, ReadableStream } from "node:stream/web";
 // @todo figure out how to use this from the ai package.. the exports map returns exports.rsc.import rather than exports.rsc.react-server
 import { createStreamableUI } from "~/utils/ai";
-import { pipeline, Transform } from "node:stream";
+import { Transform } from "node:stream";
+import { sl } from "date-fns/locale";
 
 export const config = {
   // @todo this should be controlled by an environment variable.
   // The same variable is used to respond with a stream or a regular response when generation is complete.
   supportsResponseStreaming: true,
+  maxDuration: 60,
 };
 
 // JSX is transformed to JSX_FACTORY_NAME() calls.
@@ -70,9 +72,9 @@ const handler: NextApiHandler = async (request, response) => {
         encoder.encode(
           JSON.stringify({
             rsc,
-            jsx: jsxCode,
+            source: jsxCode,
             // @todo extract external components imports and add them here
-          }),
+          }), //+ "\n",
         ),
       );
     },
@@ -82,8 +84,9 @@ const handler: NextApiHandler = async (request, response) => {
   transform.pipe(response);
 
   // (test) simulate LLM stream.
-  const aiStream = getTestAIStream();
-  // const aiStream = await generateNewComponentStreaming(prompt);
+  await sleep(100);
+  const aiStream = getTestAIStream(source);
+  // const aiStream = await generateNewComponentStreaming(prompt as string);
 
   // Consume the aiStream:
   // - Accumulate JSX
@@ -104,10 +107,9 @@ const handler: NextApiHandler = async (request, response) => {
       jsxCode = jsxCode.replace(/jsx/, "").replace(/```\s*$/, "");
 
       try {
-        const reactTree = await evaluate(
-          transformJsx(jsxCode),
-          clientComponentsMap,
-        );
+        const evaluable = transformJsx(jsxCode);
+        const reactTree = await evaluate(evaluable, clientComponentsMap);
+
         if (reactTree) {
           uiStream.update(reactTree);
         }
@@ -115,6 +117,8 @@ const handler: NextApiHandler = async (request, response) => {
         continue;
       }
     }
+
+    reader.releaseLock();
   })();
 };
 
@@ -134,6 +138,10 @@ function createTestClientComponent(id: ClientComponentId) {
   return Component;
 }
 
+function UnsupportedComponent({ children }) {
+  return children;
+}
+
 async function evaluate(
   code: string,
   clientComponentsMap: ClientComponentsMap,
@@ -146,27 +154,33 @@ async function evaluate(
     },
     {
       get(target, prop, receiver) {
-        if (typeof prop === "string" && prop in availableClientComponents) {
-          const component =
-            availableClientComponents[
-              prop as keyof typeof availableClientComponents
-            ];
+        if (typeof prop === "string" && /^[A-Z]/.test(prop)) {
+          if (prop in availableClientComponents) {
+            const component =
+              availableClientComponents[
+                prop as keyof typeof availableClientComponents
+              ];
 
-          if (component.$$id in clientComponentsMap === false) {
-            // [id, chunks, name, async]
-            // clientComponentsMap[t] = [`/g/test.js`, [], t, true];
-            clientComponentsMap[component.$$id] = {
-              id: component.$$path,
-              // Use the detected export name
-              name: prop,
-              // Turn off chunks. This is webpack-specific
-              chunks: [],
-              // Use an async import for the built resource in the browser
-              async: true,
-            };
+            if (component.$$id in clientComponentsMap === false) {
+              // [id, chunks, name, async]
+              // clientComponentsMap[t] = [`/g/test.js`, [], t, true];
+              clientComponentsMap[component.$$id] = {
+                id: component.$$path,
+                // Use the detected export name
+                name: prop,
+                // Turn off chunks. This is webpack-specific
+                chunks: [],
+                // Use an async import for the built resource in the browser
+                async: true,
+              };
+            }
+
+            return component;
           }
 
-          return component;
+          // 1. The LLM has only streamed part of a supported component eg. <Compon
+          // 2. The component is actually not supported eg. <NotSupported />
+          return UnsupportedComponent;
         }
 
         return Reflect.get(target, prop, receiver);
@@ -192,24 +206,35 @@ function transformJsx(jsx: string): string {
 
 const stateful = `<Counter />`;
 
+// ${stateful}
 const source = `
 <div className="min-h-screen bg-red-500 text-white">
   <div className="w-full max-w-2xl mx-auto py-10 flex flex-col gap-4">
+
     <h1 className="font-medium text-2xl">Truly Generative UI</h1>
     <p>No framework, standalone React Server Components stream-rendering UI as the LLM generates it 🤌</p>
     <div className="rounded-md bg-blue-700 w-full h-32 flex justify-center items-center">later</div>
-    ${stateful}
+     ${stateful}
     <div className="rounded-md bg-green-700 w-full h-32 flex justify-center items-center">done</div>
   </div>
 </div>`.trim();
 
-function getTestAIStream({
-  chunksAmount = 5,
-  slowdown = 1000,
-}: {
-  chunksAmount?: number;
-  slowdown?: number;
-} = {}) {
+const source2 = `<div className="bg-gradient-to-r from-blue-500 to-purple-500 flex flex-col items-center justify-center h-screen text-white">
+  <h1 className="text-4xl font-bold mb-4">Header Text</h1>
+  <h2 className="text-2xl mb-8">Subheader Text</h2>
+  <a href="/page" className="bg-purple-500 text-white px-4 py-2 rounded">CTA Button</a>
+</div>`;
+
+function getTestAIStream(
+  source: string,
+  {
+    chunksAmount = 63,
+    slowdown = 100,
+  }: {
+    chunksAmount?: number;
+    slowdown?: number;
+  } = {},
+) {
   return new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
