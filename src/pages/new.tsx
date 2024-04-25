@@ -1,5 +1,5 @@
 import { useSession } from "next-auth/react";
-import { useState, type ReactElement, useRef, useEffect } from "react";
+import { useState, type ReactElement, useRef } from "react";
 import { ApplicationLayout } from "~/components/AppLayout";
 import {
   ChevronRightIcon,
@@ -7,10 +7,10 @@ import {
   PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
-import router from "next/router";
 import { type NextPageWithLayout } from "./_app";
 import { Component } from "~/components/Component";
 import { flushSync } from "react-dom";
+import router from "next/router";
 
 type State =
   | {
@@ -44,8 +44,17 @@ const NewPage: NextPageWithLayout = () => {
       });
     });
 
-    fetch("/api/rsc?p=" + prompt)
+    fetch("/api/generate?p=" + prompt)
       .then(async (response) => {
+        const isStreaming =
+          response.headers.get("content-type") === "text/plain";
+
+        if (!isStreaming) {
+          const { componentId } = await response.json();
+          router.push(`/c/${componentId}`, undefined, { shallow: true });
+          return;
+        }
+
         const reader = response.body?.getReader();
         if (!reader) {
           throw new Error("No reader");
@@ -57,31 +66,34 @@ const NewPage: NextPageWithLayout = () => {
           const { done, value } = await reader.read();
 
           if (done) {
-            // flushSync(() => {
-            setState((current) => ({
-              status: "generating",
-              prompt,
-              code: {
-                source:
-                  current.status === "generating" ? current.code.source : "",
-                rsc: "[done]",
-              },
-            }));
-            // });
             return;
           }
 
           try {
-            const json = JSON.parse(decoder.decode(value));
-            console.log(json.rsc);
-            flushSync(() => {
-              setState((current) => ({
-                status: "generating",
-                code: json,
-                prompt,
-              }));
+            const data = [JSON.parse(decoder.decode(value))];
+            // .trim()
+            // .split("\n")
+            // .map((line) => JSON.parse(atob(line)));
+
+            data.forEach((data) => {
+              if (data.done) {
+                // router.push(`/c/${data.componentId}`, undefined, {
+                //   shallow: true,
+                // });
+              } else {
+                flushSync(() => {
+                  setState({
+                    status: "generating",
+                    code: data.code,
+                    prompt,
+                  });
+                });
+              }
             });
-          } catch {}
+          } catch (error) {
+            console.log(decoder.decode(value));
+            console.error(error);
+          }
         }
       })
       .catch(() => {
@@ -143,7 +155,11 @@ const loadingItems = [
   },
 ];
 
-const NewForm = ({ handleGenerateComponent }) => {
+const NewForm = ({
+  handleGenerateComponent,
+}: {
+  handleGenerateComponent: (prompt: string) => void;
+}) => {
   const formRef = useRef<HTMLFormElement>(null);
   const [input, setInput] = useState<string>("");
 

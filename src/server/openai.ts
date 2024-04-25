@@ -1,8 +1,7 @@
 import OpenAI from "openai";
-import { OpenAIStream, StreamingTextResponse } from "ai";
+import { OpenAIStream } from "ai";
 import { env } from "~/env.mjs";
 import { escapeRegExp } from "~/utils/utils";
-import { id } from "date-fns/locale";
 
 const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
@@ -131,25 +130,29 @@ export async function reviseComponent(prompt: string, code: string) {
   return newCode;
 }
 
-export async function generateNewComponentStreaming(prompt: string) {
+function getMessages(prompt: string) {
+  return [
+    {
+      role: "system",
+      content: [
+        `You are a helpful assistant. You're tasked with creating a website section using exclusively JSX and tailwind.` +
+          `Do not use any dependency or imports.` +
+          `Do not use dynamic data. Use placeholders as data. Do not use props.` +
+          `Be concise and only respond with valid JSX directly. Start with <div>`,
+      ].join("\n"),
+    } as const,
+    {
+      role: "user",
+      content: [`Request:\n` + `\`\`\`\n${prompt}\n\`\`\``].join("\n"),
+    } as const,
+  ];
+}
+
+export async function generateStreaming(prompt: string) {
   const response = await openai.chat.completions.create({
     stream: true,
     model: openaiModelName,
-    messages: [
-      {
-        role: "system",
-        content: [
-          `You are a helpful assistant. You're tasked with creating a website section using exclusively JSX and tailwind.` +
-            `Do not use any dependency or imports.` +
-            `Do not use dynamic data. Use placeholders as data. Do not use props.` +
-            `Be concise and only respond with valid JSX directly. Start with <div>`,
-        ].join("\n"),
-      } as const,
-      {
-        role: "user",
-        content: [`Request:\n` + `\`\`\`\n${prompt}\n\`\`\``].join("\n"),
-      } as const,
-    ],
+    messages: getMessages(prompt),
     temperature: 0,
     top_p: 1,
     frequency_penalty: 0,
@@ -159,6 +162,29 @@ export async function generateNewComponentStreaming(prompt: string) {
   });
 
   return OpenAIStream(response);
+}
+
+export async function generate(prompt: string) {
+  const completion = await openai.chat.completions.create({
+    model: openaiModelName,
+    messages: getMessages(prompt),
+    temperature: 0,
+    top_p: 1,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+    max_tokens: 2000,
+    n: 1,
+  });
+
+  const choices = completion.choices;
+
+  if (!choices || choices.length === 0 || !choices[0] || !choices[0].message) {
+    throw new Error("No choices returned from OpenAI");
+  }
+
+  const result = choices[0].message.content || "";
+
+  return result.replace(/^```(jsx)?/, "").replace(/```\s*$/, "");
 }
 
 export async function generateNewComponent(prompt: string) {

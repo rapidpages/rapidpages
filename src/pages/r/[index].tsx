@@ -7,10 +7,12 @@ import type {
 import { type NextPageWithLayout } from "~/pages/_app";
 import { ssgHelper } from "~/utils/ssg";
 import { Component } from "~/components/Component";
+import { clientComponents } from "~/utils/available-client-components";
+import { renderToReactServerComponents } from "~/utils/render";
 
 const RevisionPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>
-> = ({ component, revisionId }) => {
+> = ({ component, revisionId, rsc }) => {
   const code = component.revisions.find(
     (revision) => revision.id === revisionId,
   )!.code;
@@ -19,7 +21,7 @@ const RevisionPage: NextPageWithLayout<
     <Component
       component={component}
       revisionId={revisionId}
-      code={{ source: code }}
+      code={{ source: code, rsc }}
     />
   );
 };
@@ -42,11 +44,18 @@ export const getServerSideProps = async (
       notFound: true,
     };
   } else {
+    const code = component.revisions.find(
+      (revision) => revision.id === revisionId,
+    )!.code;
+
     return {
       props: {
         trpcState: ssg.dehydrate(),
         component,
         revisionId,
+        rsc: code.startsWith("import")
+          ? null
+          : await renderToReactServerComponents(code, clientComponents),
       },
     };
   }

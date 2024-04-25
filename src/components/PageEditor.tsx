@@ -1,4 +1,4 @@
-import { useLayoutEffect, useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { compileTypescript } from "~/utils/compiler";
 
 interface MyProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -22,14 +22,6 @@ export const PageEditor = ({ code }: MyProps) => {
       // iframe.onLoad hasn't fired yet so we should buffer.
       bufferedCodeBeforeLoadedRef.current += `${code}`;
     }
-
-    // if (code === "[done]") {
-    //   iframeRef.current?.contentWindow?.postMessage(
-    //     JSON.stringify({ type: "rsc", value: code, done: code === "[done]" }),
-    //   );
-    // } else {
-    //   bufferedCodeBeforeLoadedRef.current += `${code}\n`;
-    // }
 
     // // We resize the canvas to fit the screen. This is not ideal, but it works for now.
     // const handleResize = () => {
@@ -69,7 +61,6 @@ export const PageEditor = ({ code }: MyProps) => {
           onLoad={() => {
             // Flush buffered code
             const value = bufferedCodeBeforeLoadedRef.current;
-            console.log("onLoad", value);
             iframeRef.current?.contentWindow?.postMessage(
               JSON.stringify({
                 type: "rsc",

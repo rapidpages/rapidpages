@@ -7,11 +7,12 @@ import type {
 } from "next";
 import { type NextPageWithLayout } from "~/pages/_app";
 import { ssgHelper } from "~/utils/ssg";
-import { useSession } from "next-auth/react";
+import { renderToReactServerComponents } from "~/utils/render";
+import { clientComponents } from "~/utils/available-client-components";
 
 const ComponentPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>
-> = ({ component }) => {
+> = ({ component, rsc }) => {
   // Find the last revision and return it's id
   const lastRevisionId =
     component.revisions[component.revisions.length - 1]!.id;
@@ -22,6 +23,7 @@ const ComponentPage: NextPageWithLayout<
       revisionId={lastRevisionId}
       code={{
         source: component.code,
+        rsc,
       }}
     />
   );
@@ -48,6 +50,12 @@ export const getServerSideProps = async (
       props: {
         trpcState: ssg.dehydrate(),
         component,
+        rsc: component.code.startsWith("import")
+          ? null
+          : await renderToReactServerComponents(
+              component.code,
+              clientComponents,
+            ),
       },
     };
   }
