@@ -17,14 +17,16 @@ import { env } from "~/env.mjs";
 import router from "next/router";
 import { api } from "~/utils/api";
 
+export type EditorTabsCode = {
+  rsc?: string;
+  source: string;
+};
+
 export const EditorTabs = ({
   code,
   revisionId,
 }: {
-  code: {
-    rsc?: string;
-    source: string;
-  };
+  code: EditorTabsCode;
   revisionId: string;
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);

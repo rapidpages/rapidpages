@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { compileTypescript } from "~/utils/compiler";
 
-interface MyProps extends React.HTMLAttributes<HTMLDivElement> {
+interface PageEditorProps extends React.HTMLAttributes<HTMLDivElement> {
   code: string;
 }
 
-export const PageEditor = ({ code }: MyProps) => {
+export const PageEditor = ({ code }: PageEditorProps) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [dom, setDom] = useState<string | undefined>(undefined);
   const svgRef = useRef<SVGSVGElement>(null);

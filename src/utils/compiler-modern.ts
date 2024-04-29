@@ -34,7 +34,7 @@ export const transformJsx = (jsx: string): string =>
   ts.transpileModule(jsx, {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
-      jsx: "react",
+      jsx: ts.JsxEmit.React,
       jsxFactory: JSX_FACTORY_NAME,
     },
   }).outputText;

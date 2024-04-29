@@ -24,4 +24,3 @@ export function Counter({ children, initialCount = 0 }) {
 Counter.$$typeof = Symbol.for("react.client.reference");
 Counter.$$id = "__client.Counter";
 Counter.displayName = "Counter";
-// export const __esModule = true;

@@ -11,34 +11,40 @@ import { type NextPageWithLayout } from "./_app";
 import { Component } from "~/components/Component";
 import { flushSync } from "react-dom";
 import router from "next/router";
+import { ComponentVisibility } from "@prisma/client";
 
 type State =
   | {
       status: "idle";
+      prompt: string;
     }
   | {
-      status: "generating";
+      status: "generate";
       prompt: string;
       code: {
         source: string;
         rsc: string;
       };
+    }
+  | {
+      status: "error";
+      prompt: string;
     };
 
 const NewPage: NextPageWithLayout = () => {
   const { data: session } = useSession();
-  const [state, setState] = useState<State>({ status: "idle" });
+  const [state, setState] = useState<State>({ status: "idle", prompt: "" });
 
   const handleGenerateComponent = async (prompt: string) => {
     if (!session) {
       return router.push("/login");
     }
 
-    if (state.status === "generating") return;
+    if (state.status === "generate") return;
 
     flushSync(() => {
       setState({
-        status: "generating",
+        status: "generate",
         prompt,
         code: { source: "", rsc: "" },
       });
@@ -46,6 +52,10 @@ const NewPage: NextPageWithLayout = () => {
 
     fetch("/api/generate?p=" + prompt)
       .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(response.statusText);
+        }
+
         const isStreaming =
           response.headers.get("content-type") === "text/plain";
 
@@ -77,13 +87,13 @@ const NewPage: NextPageWithLayout = () => {
 
             data.forEach((data) => {
               if (data.done) {
-                // router.push(`/c/${data.componentId}`, undefined, {
-                //   shallow: true,
-                // });
+                router.push(`/c/${data.componentId}`, undefined, {
+                  shallow: true,
+                });
               } else {
                 flushSync(() => {
                   setState({
-                    status: "generating",
+                    status: "generate",
                     code: data.code,
                     prompt,
                   });
@@ -91,23 +101,31 @@ const NewPage: NextPageWithLayout = () => {
               }
             });
           } catch (error) {
-            console.log(decoder.decode(value));
             console.error(error);
           }
         }
       })
       .catch(() => {
-        setState({ status: "idle" });
+        setState({
+          status: "error",
+          prompt,
+        });
         toast.error("Failed to generate component");
         return;
       });
   };
 
-  if (state.status === "generating") {
+  if (state.status === "generate") {
     return (
       <Component
         component={{
+          id: "",
+          code: "",
+          prompt: "",
           authorId: null,
+          visibility: ComponentVisibility.PUBLIC,
+          createdAt: new Date(),
+          updatedAt: new Date(),
           revisions: [],
         }}
         code={state.code}
@@ -116,7 +134,12 @@ const NewPage: NextPageWithLayout = () => {
     );
   }
 
-  return <NewForm handleGenerateComponent={handleGenerateComponent} />;
+  return (
+    <NewForm
+      handleGenerateComponent={handleGenerateComponent}
+      initialPrompt={state.prompt}
+    />
+  );
 };
 
 const items = [
@@ -137,34 +160,15 @@ const items = [
   },
 ];
 
-const loadingItems = [
-  {
-    image: "/images/compiling.png",
-    subtext: "Code is generating, enjoy your break",
-    xkcd: 303,
-  },
-  {
-    image: "/images/estimation.png",
-    subtext: "Why there are no time estimates on this product",
-    xkcd: 612,
-  },
-  {
-    image: "/images/machine_learning.png",
-    subtext: "Modifying prompts slightly can change the output",
-    xkcd: 1838,
-  },
-];
-
 const NewForm = ({
+  initialPrompt = "",
   handleGenerateComponent,
 }: {
+  initialPrompt?: string;
   handleGenerateComponent: (prompt: string) => void;
 }) => {
   const formRef = useRef<HTMLFormElement>(null);
-  const [input, setInput] = useState<string>("");
-
-  const randomItem =
-    loadingItems[Math.floor(Math.random() * loadingItems.length)]!;
+  const [input, setInput] = useState<string>(initialPrompt);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -187,6 +191,7 @@ const NewForm = ({
                 className="block w-full rounded-md border-0 py-1.5 pr-14 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 placeholder="A chat application panel with a header, a search input, and a list of recent conversations."
                 onChange={handleInputChange}
+                value={input}
               />
               <button
                 type="submit"

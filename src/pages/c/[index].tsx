@@ -9,6 +9,7 @@ import { type NextPageWithLayout } from "~/pages/_app";
 import { ssgHelper } from "~/utils/ssg";
 import { renderToReactServerComponents } from "~/utils/render";
 import { clientComponents } from "~/utils/available-client-components";
+import { isModern, modernTemplate } from "~/utils/utils";
 
 const ComponentPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>
@@ -17,12 +18,16 @@ const ComponentPage: NextPageWithLayout<
   const lastRevisionId =
     component.revisions[component.revisions.length - 1]!.id;
 
+  const source = isModern(component.code)
+    ? modernTemplate(component.code)
+    : component.code;
+
   return (
     <Component
       component={component}
       revisionId={lastRevisionId}
       code={{
-        source: component.code,
+        source,
         rsc,
       }}
     />
@@ -48,14 +53,13 @@ export const getServerSideProps = async (
   } else {
     return {
       props: {
-        trpcState: ssg.dehydrate(),
         component,
-        rsc: component.code.startsWith("import")
-          ? null
-          : await renderToReactServerComponents(
+        rsc: isModern(component.code)
+          ? await renderToReactServerComponents(
               component.code,
               clientComponents,
-            ),
+            )
+          : undefined,
       },
     };
   }

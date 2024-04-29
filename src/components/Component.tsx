@@ -1,12 +1,24 @@
 import { Panel, PanelGroup } from "react-resizable-panels";
 import { ResizeHandle } from "~/components/ResizeHandle";
 import { SideMenu } from "~/components/SideMenu";
-import { EditorTabs } from "~/components/EditorTabs";
+import { EditorTabs, type EditorTabsCode } from "~/components/EditorTabs";
 import { ComponentProvider } from "~/context/ComponentProvider";
 import { Chat } from "~/components/Chat";
 import { useSession } from "next-auth/react";
+import type {
+  Component as ComponentType,
+  ComponentRevision,
+} from "@prisma/client";
 
-export const Component = ({ component, code, revisionId }) => {
+export const Component = ({
+  component,
+  code,
+  revisionId,
+}: {
+  component: ComponentType & { revisions: ComponentRevision[] };
+  code: EditorTabsCode;
+  revisionId: string;
+}) => {
   const { data: session } = useSession();
 
   return (

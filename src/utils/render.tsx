@@ -1,13 +1,14 @@
 // @ts-expect-error there are no module declarations for react-server-dom-webpack
 import * as ReactServerDOM from "react-server-dom-webpack/server.node";
 import { Transform, Writable } from "node:stream";
-import { createStreamableUI } from "./ai";
 import {
   type ClientComponentsWebpackManifest,
   transformJsx,
   evaluateReact,
   type ClientComponent,
 } from "./compiler-modern";
+import { createResolvablePromise } from "./utils";
+import { createStreamableUI } from "./create-streamable-ui";
 
 export async function renderToReactServerComponents<
   AvailableComponents extends string,
@@ -23,13 +24,11 @@ export async function renderToReactServerComponents<
     clientComponentsWebpackManifest,
   );
 
-  let resolve: (value: string) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let reject: (reason?: any) => void;
-  const resultPromise = new Promise<string>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
+  const {
+    resolve,
+    reject,
+    promise: resultPromise,
+  } = createResolvablePromise<string>();
 
   // @todo Figure out if there is a better way to render to
   // React Server Components format without streaming!
@@ -121,17 +120,16 @@ export async function renderStreamReactServerComponents<
   pipe(transform);
   transform.pipe(destination);
 
-  let resolve: (value: { source: string; rsc: string }) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let reject: (reason?: any) => void;
-  const resultPromise = new Promise<{ source: string; rsc: string }>(
-    (res, rej) => {
-      resolve = res;
-      reject = rej;
-    },
-  );
+  const {
+    resolve,
+    reject,
+    promise: resultPromise,
+  } = createResolvablePromise<{ source: string; rsc: string }>();
 
-  const sourceStream = await sourceStreamPromise;
+  const sourceStream = await sourceStreamPromise.catch((error) => {
+    reject(error);
+    throw error;
+  });
 
   // Consume the sourceStream:
   // - Accumulate JSX
@@ -145,6 +143,15 @@ export async function renderStreamReactServerComponents<
 
       if (done) {
         uiStream.done();
+        try {
+          evaluateReact(
+            transformJsx(source),
+            clientComponents,
+            clientComponentsWebpackManifest,
+          );
+        } catch (error) {
+          reject("Rendering failed");
+        }
         break;
       }
 

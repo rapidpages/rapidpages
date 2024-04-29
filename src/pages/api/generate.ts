@@ -11,9 +11,7 @@ import { authOptions } from "~/server/auth";
 import { clientComponents } from "~/utils/available-client-components";
 
 export const config = {
-  // @todo this should be controlled by an environment variable.
-  // The same variable is used to respond with a stream or a regular response when generation is complete.
-  supportsResponseStreaming: env.RAPIDPAGES_USE_STREAMING,
+  supportsResponseStreaming: env.RAPIDPAGES_UNSTABLE_STREAMING,
   maxDuration: 60,
 };
 
@@ -35,7 +33,7 @@ const handler: NextApiHandler = async (request, response) => {
   // This is used to detect the type of response on the client and handle it accordingly.
   response.setHeader(
     "content-type",
-    env.RAPIDPAGES_USE_STREAMING ? "text/plain" : "application/json",
+    env.RAPIDPAGES_UNSTABLE_STREAMING ? "text/plain" : "application/json",
   );
 
   const result = {
@@ -47,7 +45,7 @@ const handler: NextApiHandler = async (request, response) => {
     componentId: "",
   };
 
-  if (env.RAPIDPAGES_USE_STREAMING === true) {
+  if (env.RAPIDPAGES_UNSTABLE_STREAMING === true) {
     // const jsxTextStreamPromise = generateStreaming_test(sourceJsx);
     const jsxTextStreamPromise = generateStreaming(prompt as string);
 
@@ -91,7 +89,7 @@ const handler: NextApiHandler = async (request, response) => {
 
   result.componentId = component.id;
 
-  if (env.RAPIDPAGES_USE_STREAMING === true) {
+  if (env.RAPIDPAGES_UNSTABLE_STREAMING === true) {
     response.end(
       // Buffer.from(
       JSON.stringify({ done: true, componentId: result.componentId }),
