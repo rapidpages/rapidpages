@@ -39,9 +39,15 @@ export const transformJsx = (jsx: string): string =>
     },
   }).outputText;
 
-function UnsupportedComponent({ children }: { children: ReactNode }) {
-  return children;
-}
+const UnsupportedComponent = ({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) => {
+  return createElement("div", { className }, children);
+};
 
 export const evaluateReact = <ClientComponentsName extends string>(
   sourceCode: string,
@@ -61,7 +67,8 @@ export const evaluateReact = <ClientComponentsName extends string>(
             const component = clientComponents[prop as ClientComponentsName];
 
             if (component.$$id in clientComponentsWebpackManifest === false) {
-              // @todo probably we can use ReactServerDOM.createClientModuleProxy(component.$$id)
+              // @todo probably we can use ReactServerDOM.createClientModuleProxy(component.$$path)
+              // revisit this part when implementing building for UI libraries / design systems.
               // [id, chunks, name, async]
               // clientComponentsWebpackManifest[t] = [`/g/test.js`, [], t, true];
               clientComponentsWebpackManifest[component.$$id] = {
@@ -88,7 +95,7 @@ export const evaluateReact = <ClientComponentsName extends string>(
     },
   );
 
-  // @todo figure out how to sandbox, limiting what can be imported by the evaluated code.
+  // @todo check if this can be sandboxed further.
   vm.createContext(context);
 
   return script.runInContext(context);

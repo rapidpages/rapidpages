@@ -16,9 +16,9 @@ export const config = {
 };
 
 const handler: NextApiHandler = async (request, response) => {
-  const prompt = request.query.p as string | undefined;
+  const { prompt } = request.body;
 
-  if (!prompt) {
+  if (request.method !== "POST" || !prompt) {
     return response.status(400).end();
   }
 
@@ -30,7 +30,8 @@ const handler: NextApiHandler = async (request, response) => {
     return response.status(401).end();
   }
 
-  // This is used to detect the type of response on the client and handle it accordingly.
+  // This is used to detect the type of response on the client
+  // (streaming or not (json)) and handle it accordingly.
   response.setHeader(
     "content-type",
     env.RAPIDPAGES_UNSTABLE_STREAMING ? "text/plain" : "application/json",
@@ -71,8 +72,6 @@ const handler: NextApiHandler = async (request, response) => {
     };
   }
 
-  // Everything went fine, create the component in the DB.
-
   const component = await db.component.create({
     data: {
       code: result.code.source,
@@ -90,11 +89,7 @@ const handler: NextApiHandler = async (request, response) => {
   result.componentId = component.id;
 
   if (env.RAPIDPAGES_UNSTABLE_STREAMING === true) {
-    response.end(
-      // Buffer.from(
-      JSON.stringify({ done: true, componentId: result.componentId }),
-      // ).toString("base64"),
-    );
+    response.end("$rschunk:" + JSON.stringify(result));
   } else {
     response.json(result);
   }

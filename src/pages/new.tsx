@@ -50,7 +50,13 @@ const NewPage: NextPageWithLayout = () => {
       });
     });
 
-    fetch("/api/generate?p=" + prompt)
+    fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(response.statusText);
@@ -64,6 +70,13 @@ const NewPage: NextPageWithLayout = () => {
           router.push(`/c/${componentId}`, undefined, { shallow: true });
           return;
         }
+
+        // Preload the PageEditor so that it is ready to
+        // use the RSC payload by the time we start to consume the stream
+        // without dropping chunks.
+        // Ideally the generation flow is refactored such that the PageEditor
+        // and its underlying iframe are ready BEFORE we kick in a generation request.
+        await import("~/components/PageEditor");
 
         const reader = response.body?.getReader();
         if (!reader) {
@@ -80,16 +93,30 @@ const NewPage: NextPageWithLayout = () => {
           }
 
           try {
-            const data = [JSON.parse(decoder.decode(value))];
-            // .trim()
-            // .split("\n")
-            // .map((line) => JSON.parse(atob(line)));
+            const data = decoder
+              .decode(value)
+              .split("$rschunk:")
+              .slice(1)
+              .map((chunk) => JSON.parse(chunk));
 
             data.forEach((data) => {
               if (data.done) {
-                router.push(`/c/${data.componentId}`, undefined, {
-                  shallow: true,
+                flushSync(() => {
+                  setState({
+                    status: "generate",
+                    code: data.code,
+                    prompt,
+                  });
                 });
+                // Similarly to previous versions,
+                // router.push will reload and render the page.
+                // Technically though the API could instead return
+                // the component with its revisions to render
+                // and we can just update the url with a native
+                // history.pushState({}, "", `/c/${data.componentId}`)
+                // The only cons of this would be that the Next.js router
+                // won't pick up the history entry addition.
+                router.push(`/c/${data.componentId}`);
               } else {
                 flushSync(() => {
                   setState({

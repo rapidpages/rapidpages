@@ -1,7 +1,8 @@
 /* eslint-disable */
 // @ts-nocheck
 
-// Extracted from https://github.com/vercel/ai/blob/d2bc2aa28702cfcdff8b9268bc6b72611f6c6b31/packages/core/rsc/streamable.tsx#L24
+// Extracted from
+// https://github.com/vercel/ai/blob/d2bc2aa28702cfcdff8b9268bc6b72611f6c6b31/packages/core/rsc/streamable.tsx#L24
 //
 // Copyright 2023 Vercel, Inc.
 

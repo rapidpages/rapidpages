@@ -93,28 +93,24 @@ export async function renderStreamReactServerComponents<
   const transform = new Transform({
     transform(chunk, encoding, callback) {
       const rscChunk = decoder.decode(chunk);
+
       rsc += rscChunk;
 
-      callback(
-        null,
-        encoder.encode(
-          // Buffer.from(
-          JSON.stringify({
-            code: {
-              rsc: rscChunk,
-              source,
-            },
-            done: false,
-            // @todo extract external components imports and add them here
-          }),
-          // ).toString("base64") + "\n",
-        ),
-      );
+      const next = JSON.stringify({
+        code: {
+          rsc: rscChunk,
+          source,
+        },
+        done: false,
+      });
+
+      callback(null, `$rschunk:${next}`);
     },
   });
 
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore ReactServerDOM.renderToPipeableStream ends the `transform` stream when it is done rendering. We don't want that.
+  // @ts-ignore ReactServerDOM.renderToPipeableStream ends the `transform` stream when it is done rendering.
+  // We don't want that because we might want respond with more data.
   transform.end = () => {};
 
   pipe(transform);
