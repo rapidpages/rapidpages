@@ -88,7 +88,7 @@ export async function renderStreamReactServerComponents<
   const encoder = new TextEncoder();
 
   // Transform the RSC payload stream to a stream of
-  // { rsc, source, done } so that the client gets both the RSC payload
+  // { code: { rsc, source }, done } so that the client gets both the RSC payload
   // and the raw source to render the code to copy/paste
   const transform = new Transform({
     transform(chunk, encoding, callback) {
@@ -104,7 +104,7 @@ export async function renderStreamReactServerComponents<
         done: false,
       });
 
-      callback(null, `$rschunk:${next}`);
+      callback(null, encoder.encode(`$rschunk:${next}`));
     },
   });
 
