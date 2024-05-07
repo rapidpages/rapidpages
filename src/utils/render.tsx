@@ -32,7 +32,7 @@ export async function renderToReactServerComponents<
 
   // @todo Figure out if there is a better way to render to
   // React Server Components format without streaming!
-  // If so we can avoid this hack of piping to a Writable stream.
+  // If so we can avoid piping to a Writable stream.
   const { pipe } = ReactServerDOM.renderToPipeableStream(
     reactTree,
     clientComponentsWebpackManifest,
@@ -62,9 +62,6 @@ export async function renderToReactServerComponents<
   return resultPromise;
 }
 
-// @todo Currently this doesn't work reliably,
-// likely because the destination stream (the response) is slow,
-// we need to implement backpressure and see if that fixes the issue.
 export async function renderStreamReactServerComponents<
   AvailableComponents extends string,
 >(
