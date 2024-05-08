@@ -9,6 +9,7 @@ import {
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "~/server/auth";
 import { clientComponents } from "~/utils/available-client-components";
+import { consumeCredits, CreditsError } from "~/server/api/routers/plan/model";
 
 export const config = {
   // Set the value manually because Next.js doesn't support "dynamic config"
@@ -37,6 +38,19 @@ const handler: NextApiHandler = async (request, response) => {
     return response.status(401).end();
   }
 
+  let credits;
+
+  try {
+    credits = await consumeCredits(db, "create", userId);
+  } catch (error) {
+    response.statusMessage =
+      error instanceof CreditsError
+        ? error.message
+        : "An error occured while validating your credits, please contact us.";
+
+    return response.status(403).end(response.statusMessage);
+  }
+
   // This is used to detect the type of response on the client
   // (streaming or not (json)) and handle it accordingly.
   response.setHeader(
@@ -51,6 +65,7 @@ const handler: NextApiHandler = async (request, response) => {
     },
     done: true,
     componentId: "",
+    credits,
   };
 
   if (env.RAPIDPAGES_UNSTABLE_STREAMING === true) {

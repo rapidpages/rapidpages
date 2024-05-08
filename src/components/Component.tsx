@@ -5,21 +5,31 @@ import { EditorTabs, type EditorTabsCode } from "~/components/EditorTabs";
 import { ComponentProvider } from "~/context/ComponentProvider";
 import { Chat } from "~/components/Chat";
 import { useSession } from "next-auth/react";
-import type {
-  Component as ComponentType,
-  ComponentRevision,
+import {
+  type Component as ComponentType,
+  type ComponentRevision,
 } from "@prisma/client";
+import { type ReactNode } from "react";
+import { type PlanTypes } from "~/plans";
 
 export const Component = ({
   component,
   code,
   revisionId,
+  plan,
 }: {
   component: ComponentType & { revisions: ComponentRevision[] };
   code: EditorTabsCode;
   revisionId: string;
+  plan: {
+    type: PlanTypes["type"];
+    trial: boolean;
+    credits: number;
+  } | null;
 }) => {
   const { data: session } = useSession();
+
+  const canRevise = session && session.user.id === component.authorId && plan;
 
   return (
     <>
@@ -36,12 +46,23 @@ export const Component = ({
               <Panel
                 defaultSize={80}
                 minSize={30}
-                className="flex h-full flex-col pr-3"
+                className="flex h-full flex-col pr-3 pb-3"
               >
                 <EditorTabs code={code} revisionId={revisionId} />
-                {session && session.user.id === component.authorId && (
-                  <Chat revisionId={revisionId} />
-                )}
+                {canRevise ? (
+                  plan.type === "free" ? (
+                    <Chat revisionId={revisionId} />
+                  ) : plan.credits > 0 ? (
+                    <>
+                      <Chat revisionId={revisionId} />{" "}
+                      <CreditsInfo>{plan.credits} credits left</CreditsInfo>
+                    </>
+                  ) : (
+                    <CreditsInfo>
+                      No credits left.{plan.trial ? " Please upgrade." : ""}
+                    </CreditsInfo>
+                  )
+                ) : null}
               </Panel>
             </PanelGroup>
           </div>
@@ -49,4 +70,8 @@ export const Component = ({
       </div>
     </>
   );
+};
+
+const CreditsInfo = ({ children }: { children: ReactNode }) => {
+  return <p className="text-sm flex justify-end mt-1 px-3">{children}</p>;
 };

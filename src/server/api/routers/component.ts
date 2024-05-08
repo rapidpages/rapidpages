@@ -7,6 +7,7 @@ import {
   publicProcedure,
 } from "~/server/api/trpc";
 import { generateNewComponent, reviseComponent } from "~/server/openai";
+import { CreditsError, consumeCredits } from "./plan/model";
 
 export const componentRouter = createTRPCRouter({
   createComponent: protectedProcedure
@@ -19,6 +20,20 @@ export const componentRouter = createTRPCRouter({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Prompt cannot be empty",
+        });
+      }
+
+      let credits;
+
+      try {
+        credits = await consumeCredits(ctx.db, "create", userId);
+      } catch (error) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            error instanceof CreditsError
+              ? error.message
+              : "An error occured while validating your credits, please contact us.",
         });
       }
 
@@ -49,6 +64,7 @@ export const componentRouter = createTRPCRouter({
         status: "success",
         data: {
           componentId: component.id,
+          credits,
         },
       };
     }),
@@ -75,6 +91,20 @@ export const componentRouter = createTRPCRouter({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "No component found",
+        });
+      }
+
+      let credits;
+
+      try {
+        credits = await consumeCredits(ctx.db, "edit", userId);
+      } catch (error) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            error instanceof CreditsError
+              ? error.message
+              : "An error occured while validating your credits, please contact us.",
         });
       }
 
@@ -114,6 +144,7 @@ export const componentRouter = createTRPCRouter({
         status: "success",
         data: {
           revisionId: newRevision.id,
+          credits,
         },
       };
     }),

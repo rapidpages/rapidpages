@@ -59,6 +59,16 @@ const NewPage: NextPageWithLayout = () => {
     })
       .then(async (response) => {
         if (!response.ok) {
+          if (response.status === 403) {
+            // Credits error
+            setState({
+              status: "error",
+              prompt,
+            });
+            toast.error(response.statusText);
+            return;
+          }
+
           throw new Error(response.statusText);
         }
 

@@ -10,10 +10,13 @@ import { Component } from "~/components/Component";
 import { clientComponents } from "~/utils/available-client-components";
 import { renderToReactServerComponents } from "~/utils/render";
 import { isModern, modernTemplate } from "~/utils/utils";
+import { PlanStatus } from "@prisma/client";
+import { privateApi } from "~/server/api/private";
+import { plans } from "~/plans";
 
 const RevisionPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>
-> = ({ component, revisionId, rsc }) => {
+> = ({ component, revisionId, rsc, plan }) => {
   let source = component.revisions.find(
     (revision) => revision.id === revisionId,
   )!.code;
@@ -27,6 +30,7 @@ const RevisionPage: NextPageWithLayout<
       component={component}
       revisionId={revisionId}
       code={{ source, rsc }}
+      plan={plan}
     />
   );
 };
@@ -39,7 +43,7 @@ export const getServerSideProps = async (
   context: GetServerSidePropsContext,
 ) => {
   const revisionId = context.params?.index as string;
-  const { ssg } = await ssgHelper(context);
+  const { ssg, session } = await ssgHelper(context);
 
   const component =
     await ssg.component.getComponentFromRevision.fetch(revisionId);
@@ -49,12 +53,31 @@ export const getServerSideProps = async (
       notFound: true,
     };
   } else {
+    let plan = null;
+
+    if (session) {
+      const userPlan = await privateApi.userPlan.getByUserId(session.user.id);
+
+      if (userPlan) {
+        const planInfo = plans.find((plan) => plan.id === userPlan.planId);
+
+        if (planInfo) {
+          plan = {
+            type: planInfo.type,
+            trial: userPlan.status !== PlanStatus.ACTIVE,
+            credits: userPlan.credits,
+          };
+        }
+      }
+    }
+
     const code = component.revisions.find(
       (revision) => revision.id === revisionId,
     )!.code;
 
     return {
       props: {
+        plan,
         component,
         revisionId,
         rsc: isModern(code)

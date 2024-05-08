@@ -45,7 +45,7 @@ export const Chat = ({ revisionId }: { revisionId: string }) => {
   };
 
   return (
-    <div className="relative mb-3 flex w-full rounded-lg  border border-gray-300 bg-gray-200">
+    <div className="relative flex w-full rounded-lg  border border-gray-300 bg-gray-200">
       <div className="relative min-w-0 flex-1">
         <form className="relative" onSubmit={handleSubmit} ref={formRef}>
           <div className="overflow-hidden rounded-lg bg-white  focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
