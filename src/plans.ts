@@ -1,6 +1,7 @@
 type PlanCommon = {
   id: number;
   label: string;
+  description?: string;
 };
 
 type PlanConfig = {

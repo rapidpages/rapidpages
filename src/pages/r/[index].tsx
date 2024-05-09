@@ -11,7 +11,6 @@ import { clientComponents } from "~/utils/available-client-components";
 import { renderToReactServerComponents } from "~/utils/render";
 import { isModern, modernTemplate } from "~/utils/utils";
 import { PlanStatus } from "@prisma/client";
-import { privateApi } from "~/server/api/private";
 import { plans } from "~/plans";
 
 const RevisionPage: NextPageWithLayout<
@@ -56,19 +55,13 @@ export const getServerSideProps = async (
     let plan = null;
 
     if (session) {
-      const userPlan = await privateApi.userPlan.getByUserId(session.user.id);
+      const planInfo = await ssg.user.getPlanOrCreate.fetch();
 
-      if (userPlan) {
-        const planInfo = plans.find((plan) => plan.id === userPlan.planId);
-
-        if (planInfo) {
-          plan = {
-            type: planInfo.type,
-            trial: userPlan.status !== PlanStatus.ACTIVE,
-            credits: userPlan.credits,
-          };
-        }
-      }
+      plan = {
+        type: planInfo.plan.type,
+        trial: planInfo.userPlan.status !== PlanStatus.ACTIVE,
+        credits: planInfo.userPlan.credits,
+      };
     }
 
     const code = component.revisions.find(
