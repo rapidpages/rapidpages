@@ -110,7 +110,9 @@ const NewPage: NextPageWithLayout = () => {
               .map((chunk) => JSON.parse(chunk));
 
             data.forEach((data) => {
-              if (data.done) {
+              if (data.error) {
+                throw new Error(data.error);
+              } else if (data.done) {
                 flushSync(() => {
                   setState({
                     status: "generate",

@@ -9,7 +9,11 @@ import {
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "~/server/auth";
 import { clientComponents } from "~/utils/available-client-components";
-import { consumeCredits, CreditsError } from "~/server/api/routers/plan/model";
+import {
+  consumeCredits,
+  CreditsError,
+  increaseCredits,
+} from "~/server/api/routers/plan/model";
 
 export const config = {
   // Set the value manually because Next.js doesn't support "dynamic config"
@@ -38,7 +42,10 @@ const handler: NextApiHandler = async (request, response) => {
     return response.status(401).end();
   }
 
-  let credits;
+  let credits = {
+    left: 0,
+    used: 0,
+  };
 
   try {
     credits = await consumeCredits(db, "create", userId);
@@ -66,30 +73,69 @@ const handler: NextApiHandler = async (request, response) => {
     done: true,
     componentId: "",
     credits,
+    error: "",
   };
 
-  if (env.RAPIDPAGES_UNSTABLE_STREAMING === true) {
-    const jsxTextStreamPromise = generateStreaming(prompt as string);
+  try {
+    if (env.RAPIDPAGES_UNSTABLE_STREAMING === true) {
+      const jsxTextStreamPromise = generateStreaming(prompt as string).catch(
+        async (error) => {
+          if (credits.used > 0) {
+            await increaseCredits(db, userId, credits.used);
+          }
 
-    const { source, rsc } = await renderStreamReactServerComponents(
-      jsxTextStreamPromise,
-      response,
-      clientComponents,
-    );
+          result.credits = {
+            left: credits.left + credits.used,
+            used: 0,
+          };
 
-    result.code = {
-      source,
-      rsc,
-    };
-  } else {
-    const source = await generate(prompt as string);
+          throw error;
+        },
+      );
 
-    const rsc = await renderToReactServerComponents(source, clientComponents);
+      const { source, rsc } = await renderStreamReactServerComponents(
+        jsxTextStreamPromise,
+        response,
+        clientComponents,
+      );
 
-    result.code = {
-      source,
-      rsc,
-    };
+      result.code = {
+        source,
+        rsc,
+      };
+    } else {
+      const source = await generate(prompt as string).catch(async (error) => {
+        if (credits.used > 0) {
+          await increaseCredits(db, userId, credits.used);
+        }
+
+        result.credits = {
+          left: credits.left + credits.used,
+          used: 0,
+        };
+
+        throw error;
+      });
+
+      const rsc = await renderToReactServerComponents(source, clientComponents);
+
+      result.code = {
+        source,
+        rsc,
+      };
+    }
+  } catch (error) {
+    console.error(error);
+
+    result.error = "Something went wrong";
+
+    if (env.RAPIDPAGES_UNSTABLE_STREAMING === true) {
+      response.status(500).end("$rschunk:" + JSON.stringify(result));
+    } else {
+      response.status(500).json(result);
+    }
+
+    return;
   }
 
   const component = await db.component.create({

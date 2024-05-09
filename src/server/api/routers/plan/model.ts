@@ -48,9 +48,9 @@ export async function consumeCredits(
   }
 
   if ("costs" in plan) {
-    const remainingCredits = userPlan.credits - plan.costs[operation];
+    const creditsLeft = userPlan.credits - plan.costs[operation];
 
-    if (remainingCredits < 0) {
+    if (creditsLeft < 0) {
       throw new CreditsError("Insufficient credits");
     }
 
@@ -59,12 +59,54 @@ export async function consumeCredits(
         id: userPlan.id,
       },
       data: {
-        credits: remainingCredits,
+        credits: creditsLeft,
       },
     });
 
-    return remainingCredits;
+    return {
+      left: creditsLeft,
+      used: plan.costs[operation],
+    };
   }
 
-  return 0;
+  return {
+    left: userPlan.credits,
+    used: 0,
+  };
+}
+
+export async function increaseCredits(
+  db: PrismaClient,
+  userId: User["id"],
+  amount: number,
+) {
+  await db.userPlan.update({
+    where: {
+      userId,
+    },
+    data: {
+      credits: {
+        increment: amount,
+      },
+    },
+  });
+}
+
+export async function getUserPlan(db: PrismaClient, userId: User["id"]) {
+  const userPlan = await getByUserId(db, userId);
+
+  if (!userPlan) {
+    return null;
+  }
+
+  const plan = plans.find((plan) => plan.id === userPlan.planId);
+
+  if (!plan) {
+    return null;
+  }
+
+  return {
+    plan,
+    userPlan,
+  };
 }

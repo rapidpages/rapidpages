@@ -7,7 +7,7 @@ import {
   publicProcedure,
 } from "~/server/api/trpc";
 import { generateNewComponent, reviseComponent } from "~/server/openai";
-import { CreditsError, consumeCredits } from "./plan/model";
+import { CreditsError, consumeCredits, increaseCredits } from "./plan/model";
 
 export const componentRouter = createTRPCRouter({
   createComponent: protectedProcedure
@@ -23,7 +23,10 @@ export const componentRouter = createTRPCRouter({
         });
       }
 
-      let credits;
+      let credits = {
+        left: 0,
+        used: 0,
+      };
 
       try {
         credits = await consumeCredits(ctx.db, "create", userId);
@@ -37,7 +40,16 @@ export const componentRouter = createTRPCRouter({
         });
       }
 
-      result = await generateNewComponent(input);
+      result = await generateNewComponent(input).catch(async () => {
+        if (credits.used > 0) {
+          await increaseCredits(ctx.db, userId, credits.used);
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "An AI-model related error occurred",
+        });
+      });
 
       const component = await ctx.db.component.create({
         data: {
@@ -94,7 +106,10 @@ export const componentRouter = createTRPCRouter({
         });
       }
 
-      let credits;
+      let credits = {
+        left: 0,
+        used: 0,
+      };
 
       try {
         credits = await consumeCredits(ctx.db, "edit", userId);
@@ -108,7 +123,19 @@ export const componentRouter = createTRPCRouter({
         });
       }
 
-      const result = await reviseComponent(input.prompt, baseRevision.code);
+      const result = await reviseComponent(
+        input.prompt,
+        baseRevision.code,
+      ).catch(async () => {
+        if (credits.used > 0) {
+          await increaseCredits(ctx.db, userId, credits.used);
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "An AI-model related error occurred",
+        });
+      });
 
       const newRevision = await ctx.db.componentRevision.create({
         data: {
