@@ -6,17 +6,17 @@ import { api } from "~/utils/api";
 import { type NextPageWithLayout } from "./_app";
 import { LoadingPage } from "~/components/LoadingPage";
 import Image from "next/image";
+import {
+  type InferGetServerSidePropsType,
+  type GetServerSidePropsContext,
+} from "next";
+import { ssgHelper } from "~/utils/ssg";
+import { PlanStatus } from "@prisma/client";
 
-const SettingsPage: NextPageWithLayout = () => {
-  const { data: session, status } = useSession({ required: true });
-  const isSessionLoading = status === "loading";
+const SettingsPage: NextPageWithLayout<
+  InferGetServerSidePropsType<typeof getServerSideProps>
+> = ({ plan, user }) => {
   const deleteUser = api.user.deleteUser.useMutation();
-
-  if (isSessionLoading || !session) {
-    return <LoadingPage />;
-  }
-
-  const user = session.user;
 
   return (
     <div className="h-full bg-neutral-100 py-10">
@@ -92,6 +92,45 @@ const SettingsPage: NextPageWithLayout = () => {
               <dl className="divide-y divide-gray-100">
                 <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-900">
+                    Subscription Plan
+                  </dt>
+                  <dd className="mt-1 flex text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
+                    <div className="grow">
+                      <p className="font-bold">{plan.label}</p>
+                      {plan.description ? <p>{plan.description}</p> : null}
+                      {plan.type !== "free" ? (
+                        <p>
+                          You have{" "}
+                          <span className="font-bold">{plan.credits}</span>
+                          {plan.trial ? " free " : " "}credits left.
+                        </p>
+                      ) : null}
+                      {plan.type !== "free" && !plan.trial && plan.renews ? (
+                        <p>Renews on {plan.renews.toLocaleString()}</p>
+                      ) : null}
+                    </div>
+                    {plan.type !== "free" && plan.trial ? (
+                      <div className="flex basis-2/6 items-start justify-end">
+                        <Button size="normal" onClick={() => {}}>
+                          Upgrade
+                        </Button>
+                      </div>
+                    ) : null}
+                    {plan.type !== "free" && !plan.trial ? (
+                      <div className="flex basis-2/6 items-start justify-end">
+                        <Button size="normal" onClick={() => {}}>
+                          Edit
+                        </Button>
+                      </div>
+                    ) : null}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+            <div className="border-t border-gray-100">
+              <dl className="divide-y divide-gray-100">
+                <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-900">
                     Delete Account
                   </dt>
                   <dd className="mt-1 flex text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
@@ -129,5 +168,35 @@ const SettingsPage: NextPageWithLayout = () => {
 SettingsPage.getLayout = (page: ReactElement) => (
   <ApplicationLayout title="Settings">{page}</ApplicationLayout>
 );
+
+export const getServerSideProps = async (
+  context: GetServerSidePropsContext,
+) => {
+  const { ssg, session } = await ssgHelper(context);
+
+  if (!session) {
+    return {
+      notFound: true,
+    };
+  }
+
+  const planInfo = await ssg.user.getPlanOrCreate.fetch();
+
+  const plan = {
+    type: planInfo.plan.type,
+    label: planInfo.plan.label,
+    description: planInfo.plan.description,
+    trial: planInfo.userPlan.status !== PlanStatus.ACTIVE,
+    credits: planInfo.userPlan.credits,
+    renews: new Date(),
+  };
+
+  return {
+    props: {
+      plan,
+      user: session.user,
+    },
+  };
+};
 
 export default SettingsPage;
