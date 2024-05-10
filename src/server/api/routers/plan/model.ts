@@ -92,7 +92,10 @@ export async function increaseCredits(
   });
 }
 
-export async function getUserPlan(db: PrismaClient, userId: User["id"]) {
+export async function getByUserIdWithPlanInfo(
+  db: PrismaClient,
+  userId: User["id"],
+) {
   const userPlan = await getByUserId(db, userId);
 
   if (!userPlan) {

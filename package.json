@@ -36,6 +36,7 @@
     "@trpc/next": "^10.45.2",
     "@trpc/react-query": "^10.45.2",
     "@trpc/server": "^10.45.2",
+    "@types/stripe": "^8.0.417",
     "@uiw/codemirror-theme-vscode": "^4.21.13",
     "@uiw/react-codemirror": "^4.21.13",
     "ai": "^3.0.19",

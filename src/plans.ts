@@ -1,3 +1,5 @@
+import type { Stripe } from "stripe";
+
 type PlanCommon = {
   id: number;
   label: string;
@@ -15,8 +17,16 @@ type PlanConfig = {
   };
 };
 
+type StripeInfo = {
+  priceId: Stripe.Price["id"];
+  mode: Stripe.Checkout.Session.Mode;
+};
+
 type PlanFree = PlanCommon & { type: "free" };
-type PlanRecurrent = PlanCommon & { type: "recurrent" } & PlanConfig;
+type PlanRecurrent = PlanCommon & {
+  type: "recurrent";
+  stripe: StripeInfo;
+} & PlanConfig;
 
 export const plans = [
   {
@@ -36,8 +46,14 @@ export const plans = [
       load: 100,
       free: 10,
     },
+    stripe: {
+      priceId: "",
+      mode: "subscription",
+    },
   },
 ] as [PlanFree, PlanRecurrent];
+
+// @todo add runtime check on plan.stripe to make sure that it is configured correctly.
 
 export type PlanTypes = (typeof plans)[number];
 

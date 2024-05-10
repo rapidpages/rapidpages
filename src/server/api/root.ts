@@ -1,6 +1,7 @@
 import { componentRouter } from "~/server/api/routers/component";
 import { userRouter } from "~/server/api/routers/user";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { planRouter } from "./routers/plan";
 
 /**
  * This is the primary router for your server.
@@ -11,6 +12,7 @@ export const appRouter = createTRPCRouter({
   healthcheck: publicProcedure.query(() => "ok"),
   component: componentRouter,
   user: userRouter,
+  plan: planRouter,
 });
 
 // export type definition of API

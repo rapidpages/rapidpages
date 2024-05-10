@@ -12,10 +12,16 @@ import {
 } from "next";
 import { ssgHelper } from "~/utils/ssg";
 import { PlanStatus } from "@prisma/client";
+import toast from "react-hot-toast";
+import { TRPCClientError } from "@trpc/client";
+import { getStripe } from "~/utils/stripe/stripe-client";
 
 const SettingsPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>
 > = ({ plan, user }) => {
+  const checkout = api.plan.createCheckoutSession.useMutation();
+  const goToCustomerPortal = api.plan.createCustomerPortalLink.useMutation();
+
   const deleteUser = api.user.deleteUser.useMutation();
 
   return (
@@ -109,11 +115,60 @@ const SettingsPage: NextPageWithLayout<
                         <p>Renews on {plan.renews.toLocaleString()}</p>
                       ) : null}
                     </div>
-                    {plan.type !== "free" && plan.trial ? (
+                    {plan.type !== "free" ? (
                       <div className="flex basis-2/6 items-start justify-end">
-                        <Button size="normal" onClick={() => {}}>
-                          Upgrade
-                        </Button>
+                        {plan.trial ? (
+                          <Button
+                            size="normal"
+                            onClick={async () => {
+                              try {
+                                const { success, data } =
+                                  await checkout.mutateAsync();
+
+                                if (!success) {
+                                  throw new Error();
+                                }
+
+                                const { sessionId } = data;
+                                const stripe = await getStripe();
+                                stripe?.redirectToCheckout({ sessionId });
+                              } catch (error) {
+                                toast.error(
+                                  error instanceof TRPCClientError
+                                    ? error.message
+                                    : "Something went wrong.",
+                                );
+                              }
+                            }}
+                          >
+                            Upgrade
+                          </Button>
+                        ) : (
+                          <Button
+                            size="normal"
+                            onClick={async () => {
+                              try {
+                                const { success, data } =
+                                  await goToCustomerPortal.mutateAsync();
+
+                                if (!success) {
+                                  throw new Error();
+                                }
+
+                                const { url } = data;
+                                window.location.assign(url);
+                              } catch (error) {
+                                toast.error(
+                                  error instanceof TRPCClientError
+                                    ? error.message
+                                    : "Something went wrong.",
+                                );
+                              }
+                            }}
+                          >
+                            Manage
+                          </Button>
+                        )}
                       </div>
                     ) : null}
                     {plan.type !== "free" && !plan.trial ? (
