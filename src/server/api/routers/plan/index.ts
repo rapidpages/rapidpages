@@ -1,34 +1,8 @@
-import { z } from "zod";
-import {
-  createTRPCRouter,
-  protectedProcedure,
-  publicProcedure,
-} from "~/server/api/trpc";
-import { create, getByUserId, getByUserIdWithPlanInfo } from "./model";
-import { defaultPlan, plans } from "~/plans";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { getByUserId, getByUserIdWithPlanInfo } from "./model";
 import { TRPCError } from "@trpc/server";
-import email from "next-auth/providers/email";
 import { stripe } from "~/utils/stripe/config";
 import { env } from "process";
-
-export const privatePlanRouter = createTRPCRouter({
-  create: publicProcedure
-    // @todo allow to pass plan too.
-    .input(z.string().describe("User ID"))
-    .mutation(({ ctx, input }) => create(ctx.db, input, defaultPlan)),
-  getByUserId: publicProcedure
-    .input(z.string().describe("User ID"))
-    .query(async ({ ctx, input }) => {
-      const userPlan = await getByUserId(ctx.db, input);
-      if (!userPlan) {
-        return null;
-      }
-      return {
-        userPlan,
-        plan: plans.find((plan) => plan.id === userPlan.planId),
-      };
-    }),
-});
 
 export const planRouter = createTRPCRouter({
   createCheckoutSession: protectedProcedure.mutation(async ({ ctx }) => {

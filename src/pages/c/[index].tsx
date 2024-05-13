@@ -11,7 +11,6 @@ import { renderToReactServerComponents } from "~/utils/render";
 import { clientComponents } from "~/utils/available-client-components";
 import { isModern, modernTemplate } from "~/utils/utils";
 import { PlanStatus } from "@prisma/client";
-import { plans } from "~/plans";
 
 const ComponentPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>

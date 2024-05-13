@@ -22,8 +22,8 @@ type StripeInfo = {
   mode: Stripe.Checkout.Session.Mode;
 };
 
-type PlanFree = PlanCommon & { type: "free" };
-type PlanRecurrent = PlanCommon & {
+export type PlanFree = PlanCommon & { type: "free" };
+export type PlanRecurrent = PlanCommon & {
   type: "recurrent";
   stripe: StripeInfo;
 } & PlanConfig;

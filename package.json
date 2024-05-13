@@ -52,6 +52,7 @@
     "react-hot-toast": "^2.4.1",
     "react-resizable-panels": "^0.0.55",
     "react-server-dom-webpack": "0.0.0-experimental-41b4714f1-20230328",
+    "stripe": "^15.6.0",
     "superjson": "^1.13.1",
     "tailwind-merge": "^1.14.0",
     "zod": "^3.21.4"

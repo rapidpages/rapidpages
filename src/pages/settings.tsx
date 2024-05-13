@@ -24,6 +24,9 @@ const SettingsPage: NextPageWithLayout<
 
   const deleteUser = api.user.deleteUser.useMutation();
 
+  const isTrial = plan.status === PlanStatus.UNPAID;
+  const willCancel = plan.status === PlanStatus.WILL_CANCEL;
+
   return (
     <div className="h-full bg-neutral-100 py-10">
       <header>
@@ -108,16 +111,19 @@ const SettingsPage: NextPageWithLayout<
                         <p>
                           You have{" "}
                           <span className="font-bold">{plan.credits}</span>
-                          {plan.trial ? " free " : " "}credits left.
+                          {isTrial ? " free " : " "}credits left.
                         </p>
                       ) : null}
-                      {plan.type !== "free" && !plan.trial && plan.renews ? (
-                        <p>Renews on {plan.renews.toLocaleString()}</p>
+                      {plan.type !== "free" && !isTrial && plan.updatesAt ? (
+                        <p>
+                          {willCancel ? "Will be cancelled" : "Renews"} on{" "}
+                          {plan.updatesAt.toLocaleString()}
+                        </p>
                       ) : null}
                     </div>
                     {plan.type !== "free" ? (
                       <div className="flex basis-2/6 items-start justify-end">
-                        {plan.trial ? (
+                        {isTrial ? (
                           <Button
                             size="normal"
                             onClick={async () => {
@@ -169,13 +175,6 @@ const SettingsPage: NextPageWithLayout<
                             Manage
                           </Button>
                         )}
-                      </div>
-                    ) : null}
-                    {plan.type !== "free" && !plan.trial ? (
-                      <div className="flex basis-2/6 items-start justify-end">
-                        <Button size="normal" onClick={() => {}}>
-                          Edit
-                        </Button>
                       </div>
                     ) : null}
                   </dd>
@@ -241,9 +240,9 @@ export const getServerSideProps = async (
     type: planInfo.plan.type,
     label: planInfo.plan.label,
     description: planInfo.plan.description,
-    trial: planInfo.userPlan.status !== PlanStatus.ACTIVE,
+    status: planInfo.userPlan.status,
+    updatesAt: planInfo.userPlan.updatedAt,
     credits: planInfo.userPlan.credits,
-    renews: new Date(),
   };
 
   return {

@@ -1,5 +1,5 @@
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { create, getByUserId } from "./plan/model";
+import { create, getByUserId, getByUserIdWithPlanInfo } from "./plan/model";
 import { defaultPlan, plans } from "~/plans";
 import { TRPCError } from "@trpc/server";
 
@@ -17,43 +17,25 @@ export const userRouter = createTRPCRouter({
   }),
 
   getPlan: protectedProcedure.query(async ({ ctx }) => {
-    const userPlan = await getByUserId(ctx.db, ctx.session.user.id);
-    if (!userPlan) {
-      return null;
-    }
+    const planInfo = await getByUserIdWithPlanInfo(ctx.db, ctx.session.user.id);
 
-    const plan = plans.find((plan) => plan.id === userPlan.planId);
-
-    if (!plan) {
+    if (!planInfo) {
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: "Could not find a plan for this user",
       });
     }
 
-    return {
-      userPlan,
-      plan,
-    };
+    return planInfo;
   }),
 
   getPlanOrCreate: protectedProcedure.query(async ({ ctx }) => {
-    const userPlan = await getByUserId(ctx.db, ctx.session.user.id);
-    if (userPlan) {
-      const plan = plans.find((plan) => plan.id === userPlan.planId);
+    const planInfo = await getByUserIdWithPlanInfo(ctx.db, ctx.session.user.id);
 
-      if (!plan) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Could not find a plan for this user",
-        });
-      }
-
-      return {
-        userPlan,
-        plan,
-      };
+    if (planInfo) {
+      return planInfo;
     }
+
     return {
       userPlan: await create(ctx.db, ctx.session.user.id, defaultPlan),
       plan: defaultPlan,

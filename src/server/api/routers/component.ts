@@ -127,6 +127,8 @@ export const componentRouter = createTRPCRouter({
         input.prompt,
         baseRevision.code,
       ).catch(async () => {
+        // @todo decide whether we should refund the user if the model didn't generate a diff.
+        // This might be due to a bad user prompt so the model will still charge us.
         if (credits.used > 0) {
           await increaseCredits(ctx.db, userId, credits.used);
         }

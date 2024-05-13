@@ -100,10 +100,9 @@ model VerificationToken {
 }
 
 enum PlanStatus {
-    PENDING
     ACTIVE
-    PAUSED
     UNPAID
+    WILL_CANCEL
 }
 
 model UserPlan {
@@ -112,11 +111,11 @@ model UserPlan {
     planId              Int
     status              PlanStatus @default(ACTIVE)
     updatedAt           DateTime @default(now())
-    renewsAt            DateTime?
+    updatesAt           DateTime?
     credits             Int @default(0)
 
     // Stripe information
-    customerId          String?
+    customerId          String? @unique
 
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -41,7 +41,7 @@ export const env = createEnv({
     RAPIDPAGES_UNSTABLE_STREAMING: z.boolean(),
 
     // Stripe
-    STRIPE_SECRET_KEY_LIVE: z.string(),
+    STRIPE_SECRET_KEY: z.string(),
   },
 
   /**
@@ -82,7 +82,7 @@ export const env = createEnv({
       process.env.RAPIDPAGES_UNSTABLE_STREAMING,
     ),
 
-    STRIPE_SECRET_KEY_LIVE: process.env.STRIPE_SECRET_KEY_LIVE,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
   },
