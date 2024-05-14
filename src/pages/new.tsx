@@ -169,6 +169,7 @@ const NewPage: NextPageWithLayout = () => {
         }}
         code={state.code}
         revisionId={""}
+        plan={null}
       />
     ) : (
       <Loading />

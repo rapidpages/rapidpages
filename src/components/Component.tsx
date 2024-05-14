@@ -23,7 +23,6 @@ export const Component = ({
   revisionId: string;
   plan: {
     type: PlanTypes["type"];
-    trial: boolean;
     credits: number;
   } | null;
 }) => {
@@ -50,7 +49,7 @@ export const Component = ({
               >
                 <EditorTabs code={code} revisionId={revisionId} />
                 {canRevise ? (
-                  plan.type === "free" ? (
+                  plan.type === "free-unlimited" ? (
                     <Chat revisionId={revisionId} />
                   ) : plan.credits > 0 ? (
                     <>
@@ -59,7 +58,8 @@ export const Component = ({
                     </>
                   ) : (
                     <CreditsInfo>
-                      No credits left.{plan.trial ? " Please upgrade." : ""}
+                      No credits left.
+                      {plan.type === "free" ? " Please upgrade." : ""}
                     </CreditsInfo>
                   )
                 ) : null}

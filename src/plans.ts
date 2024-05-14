@@ -1,20 +1,13 @@
 import type { Stripe } from "stripe";
 
-type PlanCommon = {
-  id: number;
-  label: string;
-  description?: string;
-};
+type PlanId = number;
 
-type PlanConfig = {
-  costs: {
-    create: number;
-    edit: number;
-  };
-  credits: {
-    load: number;
-    free: number;
-  };
+type PlanCommon = {
+  id: PlanId;
+  active: boolean;
+  visiblity: "public" | "private";
+  name: string;
+  description?: string;
 };
 
 type StripeInfo = {
@@ -22,39 +15,63 @@ type StripeInfo = {
   mode: Stripe.Checkout.Session.Mode;
 };
 
-export type PlanFree = PlanCommon & { type: "free" };
-export type PlanRecurrent = PlanCommon & {
-  type: "recurrent";
-  stripe: StripeInfo;
-} & PlanConfig;
+export type PlanFree = PlanCommon & {
+  type: "free";
+  credits: number;
+  costs: {
+    create: number;
+    edit: number;
+  };
+};
 
+export type PlanFreeUnlimited = PlanCommon & {
+  type: "free-unlimited";
+};
+
+export type PlanSubscription = PlanCommon & {
+  type: "subscription";
+  credits: number;
+  costs: {
+    create: number;
+    edit: number;
+  };
+  stripe: StripeInfo;
+  unsubscribeTo: PlanId;
+};
+
+export type PlanTypes = PlanFree | PlanFreeUnlimited | PlanSubscription;
 export const plans = [
   {
     id: 0,
-    label: "Free Plan",
+    active: true,
+    visiblity: "public",
+    name: "Free Plan",
+    description: "Great for giving Rapidpages Designer a try.",
     type: "free",
-  },
-  {
-    id: 1,
-    label: "Pro Subscription",
-    type: "recurrent",
+    credits: 10,
     costs: {
       create: 3,
       edit: 2,
     },
-    credits: {
-      load: 100,
-      free: 10,
+  },
+  {
+    id: 1,
+    active: true,
+    visiblity: "public",
+    name: "Pro Subscription",
+    type: "subscription",
+    description: "Perfect for those who want to explore.",
+    credits: 100,
+    costs: {
+      create: 3,
+      edit: 2,
     },
     stripe: {
       priceId: "",
       mode: "subscription",
     },
+    unsubscribeTo: 0,
   },
-] as [PlanFree, PlanRecurrent];
+] satisfies [PlanFree, PlanSubscription];
 
-// @todo add runtime check on plan.stripe to make sure that it is configured correctly.
-
-export type PlanTypes = (typeof plans)[number];
-
-export const defaultPlan = plans[1];
+export const defaultPlan = plans[0];

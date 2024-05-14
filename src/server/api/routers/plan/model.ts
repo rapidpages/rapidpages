@@ -6,26 +6,42 @@ import {
 } from "@prisma/client";
 import { plans, type PlanTypes } from "~/plans";
 
+const AVERAGE_MONTH_DAYS = 30.44;
+
 export async function create(
   db: PrismaClient,
   userId: User["id"],
   planConfig: PlanTypes,
 ) {
+  if (!planConfig.active) {
+    throw new Error("Plan not active");
+  }
+
+  const updatesAt = planConfig.type === "free" ? new Date() : null;
+  if (updatesAt) {
+    // Free plan updates in ~1 month
+    updatesAt.setDate(updatesAt.getDate() + AVERAGE_MONTH_DAYS);
+  }
+
   return db.userPlan.create({
     data: {
       planId: planConfig.id,
-      status: PlanStatus.UNPAID,
-      credits: "credits" in planConfig ? planConfig.credits.free : undefined,
+      status:
+        planConfig.type === "subscription"
+          ? PlanStatus.UNPAID
+          : PlanStatus.ACTIVE,
+      credits: planConfig.type === "free" ? planConfig.credits : undefined,
       user: {
         connect: {
           id: userId,
         },
       },
+      updatesAt,
     },
   });
 }
 
-export function update(
+export function updateByUserId(
   db: PrismaClient,
   userId: User["id"],
   data: Partial<UserPlan> = {},
@@ -72,17 +88,17 @@ export async function getByUserIdWithPlanInfo(
    *
    * @todo figure out if we can find a better location for the free credits reload logic.
    */
-  const now = Date.now();
+  const now = new Date();
   const shouldReloadFreeCredits =
-    plan.type !== "free" &&
-    userPlan.updatesAt == null &&
-    now - userPlan.updatedAt.getTime() >=
-      30.44 * 8.64e7; /* The average month length in milliseconds */
+    plan.type === "free" && userPlan.updatesAt && now >= userPlan.updatesAt;
 
   if (shouldReloadFreeCredits) {
-    userPlan = await update(db, userId, {
-      credits: plan.credits.free,
-      updatedAt: new Date(now),
+    const updatesAt = new Date(now);
+    updatesAt.setDate(updatesAt.getDate() + AVERAGE_MONTH_DAYS);
+    userPlan = await updateByUserId(db, userId, {
+      credits: plan.credits,
+      updatedAt: now,
+      updatesAt,
     });
   }
 
@@ -92,14 +108,23 @@ export async function getByUserIdWithPlanInfo(
   };
 }
 
+export function updateByCustomerId(
+  db: PrismaClient,
+  customerId: NonNullable<UserPlan["customerId"]>,
+  data: Partial<UserPlan> = {},
+) {
+  return db.userPlan.update({
+    where: {
+      customerId,
+    },
+    data,
+  });
+}
+
 export async function getByCustomerId(
   db: PrismaClient,
-  customerId: UserPlan["customerId"],
+  customerId: NonNullable<UserPlan["customerId"]>,
 ) {
-  if (customerId == null) {
-    return null;
-  }
-
   return db.userPlan.findUnique({
     where: {
       customerId,
@@ -109,7 +134,7 @@ export async function getByCustomerId(
 
 export async function getByCustomerIdWithPlanInfo(
   db: PrismaClient,
-  customerId: UserPlan["customerId"],
+  customerId: NonNullable<UserPlan["customerId"]>,
 ) {
   const userPlan = await getByCustomerId(db, customerId);
 

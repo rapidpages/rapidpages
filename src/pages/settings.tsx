@@ -1,10 +1,9 @@
 import { type ReactElement } from "react";
 import { ApplicationLayout } from "~/components/AppLayout";
 import { Button } from "~/components/Button";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { api } from "~/utils/api";
 import { type NextPageWithLayout } from "./_app";
-import { LoadingPage } from "~/components/LoadingPage";
 import Image from "next/image";
 import {
   type InferGetServerSidePropsType,
@@ -15,16 +14,15 @@ import { PlanStatus } from "@prisma/client";
 import toast from "react-hot-toast";
 import { TRPCClientError } from "@trpc/client";
 import { getStripe } from "~/utils/stripe/stripe-client";
+import { type PlanTypes } from "~/plans";
 
 const SettingsPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>
 > = ({ plan, user }) => {
-  const checkout = api.plan.createCheckoutSession.useMutation();
   const goToCustomerPortal = api.plan.createCustomerPortalLink.useMutation();
 
   const deleteUser = api.user.deleteUser.useMutation();
 
-  const isTrial = plan.status === PlanStatus.UNPAID;
   const willCancel = plan.status === PlanStatus.WILL_CANCEL;
 
   return (
@@ -100,83 +98,54 @@ const SettingsPage: NextPageWithLayout<
             <div className="border-t border-gray-100">
               <dl className="divide-y divide-gray-100">
                 <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-900">
-                    Subscription Plan
-                  </dt>
+                  <dt className="text-sm font-medium text-gray-900">Plan</dt>
                   <dd className="mt-1 flex text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
                     <div className="grow">
-                      <p className="font-bold">{plan.label}</p>
-                      {plan.description ? <p>{plan.description}</p> : null}
-                      {plan.type !== "free" ? (
+                      <p className="font-bold">{plan.name}</p>
+                      {"credits" in plan ? (
                         <p>
                           You have{" "}
                           <span className="font-bold">{plan.credits}</span>
-                          {isTrial ? " free " : " "}credits left.
+                          {plan.type === "free" ? " free " : " "}credits left.
                         </p>
                       ) : null}
-                      {plan.type !== "free" && !isTrial && plan.updatesAt ? (
+                      {plan.type !== "free-unlimited" && plan.updatesAt ? (
                         <p>
                           {willCancel ? "Will be cancelled" : "Renews"} on{" "}
                           {plan.updatesAt.toLocaleString()}
                         </p>
                       ) : null}
                     </div>
-                    {plan.type !== "free" ? (
-                      <div className="flex basis-2/6 items-start justify-end">
-                        {isTrial ? (
-                          <Button
-                            size="normal"
-                            onClick={async () => {
-                              try {
-                                const { success, data } =
-                                  await checkout.mutateAsync();
+                    <div className="flex basis-2/6 items-start justify-end">
+                      {plan.type === "subscription" ? (
+                        <Button
+                          size="normal"
+                          onClick={async () => {
+                            try {
+                              const { success, data } =
+                                await goToCustomerPortal.mutateAsync();
 
-                                if (!success) {
-                                  throw new Error();
-                                }
-
-                                const { sessionId } = data;
-                                const stripe = await getStripe();
-                                stripe?.redirectToCheckout({ sessionId });
-                              } catch (error) {
-                                toast.error(
-                                  error instanceof TRPCClientError
-                                    ? error.message
-                                    : "Something went wrong.",
-                                );
+                              if (!success) {
+                                throw new Error();
                               }
-                            }}
-                          >
-                            Upgrade
-                          </Button>
-                        ) : (
-                          <Button
-                            size="normal"
-                            onClick={async () => {
-                              try {
-                                const { success, data } =
-                                  await goToCustomerPortal.mutateAsync();
 
-                                if (!success) {
-                                  throw new Error();
-                                }
-
-                                const { url } = data;
-                                window.location.assign(url);
-                              } catch (error) {
-                                toast.error(
-                                  error instanceof TRPCClientError
-                                    ? error.message
-                                    : "Something went wrong.",
-                                );
-                              }
-                            }}
-                          >
-                            Manage
-                          </Button>
-                        )}
-                      </div>
-                    ) : null}
+                              const { url } = data;
+                              window.location.assign(url);
+                            } catch (error) {
+                              toast.error(
+                                error instanceof TRPCClientError
+                                  ? error.message
+                                  : "Something went wrong.",
+                              );
+                            }
+                          }}
+                        >
+                          Manage
+                        </Button>
+                      ) : (
+                        <Button href="/plans">Check Plans</Button>
+                      )}
+                    </div>
                   </dd>
                 </div>
               </dl>
@@ -234,20 +203,18 @@ export const getServerSideProps = async (
     };
   }
 
-  const planInfo = await ssg.user.getPlanOrCreate.fetch();
-
-  const plan = {
-    type: planInfo.plan.type,
-    label: planInfo.plan.label,
-    description: planInfo.plan.description,
-    status: planInfo.userPlan.status,
-    updatesAt: planInfo.userPlan.updatedAt,
-    credits: planInfo.userPlan.credits,
-  };
+  const { plan, userPlan } = await ssg.user.getPlanOrCreate.fetch();
 
   return {
     props: {
-      plan,
+      plan: {
+        type: plan.type as PlanTypes["type"],
+        name: plan.name,
+        description: "description" in plan ? plan.description : null,
+        status: userPlan.status,
+        updatesAt: userPlan.updatesAt,
+        credits: userPlan.credits,
+      },
       user: session.user,
     },
   };

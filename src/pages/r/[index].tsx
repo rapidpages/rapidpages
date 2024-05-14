@@ -10,8 +10,6 @@ import { Component } from "~/components/Component";
 import { clientComponents } from "~/utils/available-client-components";
 import { renderToReactServerComponents } from "~/utils/render";
 import { isModern, modernTemplate } from "~/utils/utils";
-import { PlanStatus } from "@prisma/client";
-import { plans } from "~/plans";
 
 const RevisionPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>
@@ -59,7 +57,6 @@ export const getServerSideProps = async (
 
       plan = {
         type: planInfo.plan.type,
-        trial: planInfo.userPlan.status !== PlanStatus.ACTIVE,
         credits: planInfo.userPlan.credits,
       };
     }

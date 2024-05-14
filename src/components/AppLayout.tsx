@@ -12,7 +12,10 @@ import { Button } from "./Button";
 import { useRouter } from "next/router";
 
 const navigation = [{ name: "My UIs", href: "/my-uis" }];
-const userNavigation = [{ name: "Settings", href: "/settings" }];
+const userNavigation = [
+  { name: "Settings", href: "/settings" },
+  { name: "Plans", href: "/plans" },
+];
 const PageNames = ["My UIs"];
 
 interface ApplicationLayoutProps {
