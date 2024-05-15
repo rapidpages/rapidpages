@@ -8,6 +8,19 @@ const openai = new OpenAI({
 });
 const openaiModelName = "gpt-4-0613";
 
+const AIErrorCodes = {
+  0: "No choices returned from OpenAI",
+  1: "No diff found in message",
+  2: "No code block found in input",
+};
+export class AIError extends Error {
+  code: keyof typeof AIErrorCodes;
+  constructor(code: keyof typeof AIErrorCodes) {
+    super(AIErrorCodes[code]);
+    this.code = code;
+  }
+}
+
 const extractFirstCodeBlock = (input: string) => {
   const pattern = /```(\w+)?\n([\s\S]+?)\n```/g;
   let matches;
@@ -20,7 +33,7 @@ const extractFirstCodeBlock = (input: string) => {
   }
 
   // console.log(input);
-  throw new Error("No code block found in input");
+  throw new AIError(2);
 };
 
 const containsDiff = (message: string) => {
@@ -116,13 +129,13 @@ export async function reviseComponent(prompt: string, code: string) {
     !choices[0].message ||
     !choices[0].message.content
   ) {
-    throw new Error("No choices returned from OpenAI");
+    throw new AIError(0);
   }
 
   const diff = choices[0].message.content;
 
   if (!containsDiff(diff)) {
-    throw new Error("No diff found in message");
+    throw new AIError(1);
   }
 
   const newCode = applyDiff(code, diff);
@@ -179,7 +192,7 @@ export async function generate(prompt: string) {
   const choices = completion.choices;
 
   if (!choices || choices.length === 0 || !choices[0] || !choices[0].message) {
-    throw new Error("No choices returned from OpenAI");
+    throw new AIError(0);
   }
 
   const result = choices[0].message.content || "";
@@ -222,7 +235,7 @@ export async function generateNewComponent(prompt: string) {
   const choices = completion.choices;
 
   if (!choices || choices.length === 0 || !choices[0] || !choices[0].message) {
-    throw new Error("No choices returned from OpenAI");
+    throw new AIError(0);
   }
 
   let result = choices[0].message.content || "";

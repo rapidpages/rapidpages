@@ -13,8 +13,8 @@ import { ssgHelper } from "~/utils/ssg";
 import { PlanStatus } from "@prisma/client";
 import toast from "react-hot-toast";
 import { TRPCClientError } from "@trpc/client";
-import { getStripe } from "~/utils/stripe/stripe-client";
 import { type PlanTypes } from "~/plans";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
 const SettingsPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>
@@ -22,8 +22,6 @@ const SettingsPage: NextPageWithLayout<
   const goToCustomerPortal = api.plan.createCustomerPortalLink.useMutation();
 
   const deleteUser = api.user.deleteUser.useMutation();
-
-  const willCancel = plan.status === PlanStatus.WILL_CANCEL;
 
   return (
     <div className="h-full bg-neutral-100 py-10">
@@ -111,8 +109,23 @@ const SettingsPage: NextPageWithLayout<
                       ) : null}
                       {plan.type !== "free-unlimited" && plan.updatesAt ? (
                         <p>
-                          {willCancel ? "Will be cancelled" : "Renews"} on{" "}
-                          {plan.updatesAt.toLocaleString()}
+                          {plan.status === PlanStatus.WILL_CANCEL
+                            ? "Will be cancelled"
+                            : "Renews"}{" "}
+                          on {plan.updatesAt.toLocaleString()}
+                        </p>
+                      ) : null}
+                      {plan.status === PlanStatus.UNPAID ? (
+                        <p className="text-red-500 mt-2 flex gap-2">
+                          <ExclamationTriangleIcon
+                            className="stroke-2"
+                            style={{ flex: "0 0 1.3em" }}
+                          />{" "}
+                          <span className="flex-1">
+                            The plan is not active either because of a failed
+                            payment or techincal issues. Go to the Manage plan
+                            page. If the issue persists feel free to contact us.
+                          </span>
                         </p>
                       ) : null}
                     </div>
@@ -120,6 +133,11 @@ const SettingsPage: NextPageWithLayout<
                       {plan.type === "subscription" ? (
                         <Button
                           size="normal"
+                          className={
+                            plan.status === PlanStatus.UNPAID
+                              ? "bg-red-500"
+                              : undefined
+                          }
                           onClick={async () => {
                             try {
                               const { success, data } =
@@ -166,11 +184,15 @@ const SettingsPage: NextPageWithLayout<
                       <Button
                         variant="white"
                         size="normal"
-                        onClick={() => {
-                          deleteUser.mutate();
-                          signOut({
-                            callbackUrl: `${window.location.origin}`,
-                          });
+                        onClick={async () => {
+                          try {
+                            deleteUser.mutate();
+                            signOut({
+                              callbackUrl: `${window.location.origin}`,
+                            });
+                          } catch {
+                            toast.error("Something went wrong");
+                          }
                         }}
                         // className="rounded-md bg-red-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-400"
                       >

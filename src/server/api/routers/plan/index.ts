@@ -1,11 +1,10 @@
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { updateByUserId, getByUserId, getByUserIdWithPlanInfo } from "./model";
+import { getByUserId, create as createPlan } from "./model";
 import { TRPCError } from "@trpc/server";
 import { stripe } from "~/utils/stripe/config";
 import { env } from "process";
 import { z } from "zod";
-import { plans } from "~/plans";
-import { PlanStatus } from "@prisma/client";
+import { defaultPlan, plans } from "~/plans";
 
 export const planRouter = createTRPCRouter({
   createCheckoutSession: protectedProcedure
@@ -27,16 +26,10 @@ export const planRouter = createTRPCRouter({
         });
       }
 
-      const userPlan = await updateByUserId(ctx.db, ctx.session.user.id, {
-        planId: plan.id,
-        status: PlanStatus.UNPAID,
-      });
+      let userPlan = await getByUserId(ctx.db, ctx.session.user.id);
 
       if (!userPlan) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "User has no plan",
-        });
+        userPlan = await createPlan(ctx.db, ctx.session.user.id, defaultPlan);
       }
 
       const userId = userPlan.userId;

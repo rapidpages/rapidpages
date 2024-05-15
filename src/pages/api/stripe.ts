@@ -1,10 +1,8 @@
-import { PlanStatus } from "@prisma/client";
+import { PlanStatus, type UserPlan } from "@prisma/client";
 import { type NextApiRequest, type NextApiHandler } from "next";
 import {
   getByCustomerId,
-  getByCustomerIdWithPlanInfo,
   updateByCustomerId,
-  update as updatePlan,
 } from "~/server/api/routers/plan/model";
 import { db } from "~/server/db";
 import { stripe } from "~/utils/stripe/config";
@@ -24,10 +22,10 @@ export const config = {
  *
  * Handles only subscriptions linked to plans of type "recurrent" (see `PlanRecurrent`` ~/plans.ts).
  *
- * IMPORTANT: The implementation below doesn't account for plan switching
- *            NOR for non-existent customers (`UserPlan.customerId`).
- *            Should any of these events occur the application
- *            and Stripe will be out of sync.
+ * IMPORTANT: The implementation below doesn't account
+ *            non-existent customers (`UserPlan.customerId`).
+ *            This might be the case when the customer is created in
+ *            the Stripe Dashboard directly and is not linked to a user in the app.
  *
  * Covered Webhooks events:
  *
@@ -58,8 +56,8 @@ const handler: NextApiHandler = async (request, response) => {
 
     eventId = event.id;
 
-    console.log("Webhook: " + event.type);
-    console.log(event.data);
+    // console.log("Webhook: " + event.type);
+    // console.log(event.data);
 
     if (event.type === "customer.subscription.updated") {
       const subscription = event.data.object;
@@ -94,28 +92,17 @@ const handler: NextApiHandler = async (request, response) => {
           updatesAt: new Date(subscription.current_period_end),
         });
       } else if (subscription.status === "canceled") {
-        const { unsubscribeTo } = plan;
-        const unsubscribeToPlan = plans.find(
-          (plan) => plan.id === unsubscribeTo,
+        await handleCancellation(
+          plan,
+          customerId,
+          subscription.cancellation_details?.comment ===
+            `$rs.deleted.${customerId}`,
         );
-
-        await updateByCustomerId(db, customerId, {
-          planId: plan.unsubscribeTo,
-          status:
-            unsubscribeToPlan && unsubscribeToPlan.type !== "subscription"
-              ? PlanStatus.ACTIVE
-              : PlanStatus.UNPAID,
-          updatedAt: new Date(),
-          updatesAt: null,
-        });
-
-        if (!unsubscribeToPlan) {
-          throw new Error(`Unsubsscribe plan for plan id ${plan.id} not found`);
-        }
       } else {
         await updateByCustomerId(db, customerId, {
           planId: plan.id,
           status: PlanStatus.UNPAID,
+          credits: 0,
           updatedAt: new Date(subscription.current_period_start),
           updatesAt: new Date(subscription.current_period_end),
         });
@@ -141,24 +128,12 @@ const handler: NextApiHandler = async (request, response) => {
           ),
         });
       } else {
-        const { unsubscribeTo } = plan;
-        const unsubscribeToPlan = plans.find(
-          (plan) => plan.id === unsubscribeTo,
+        await handleCancellation(
+          plan,
+          customerId,
+          subscription.cancellation_details?.comment ===
+            `$rs.deleted.${customerId}`,
         );
-
-        await updateByCustomerId(db, customerId, {
-          planId: plan.unsubscribeTo,
-          status:
-            unsubscribeToPlan && unsubscribeToPlan.type !== "subscription"
-              ? PlanStatus.ACTIVE
-              : PlanStatus.UNPAID,
-          updatedAt: new Date(),
-          updatesAt: null,
-        });
-
-        if (!unsubscribeToPlan) {
-          throw new Error(`Unsubsscribe plan for plan id ${plan.id} not found`);
-        }
       }
     }
 
@@ -198,10 +173,6 @@ async function getStripeEvent(request: NextApiRequest) {
   );
 }
 
-function error(event: Stripe.Event, message: string) {
-  throw new Error(`Event #${event.id}: ${message}`);
-}
-
 async function getPlanInfoFromSubscription(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === "string"
@@ -224,4 +195,44 @@ async function getPlanInfoFromSubscription(subscription: Stripe.Subscription) {
     plan,
     customerId,
   };
+}
+
+async function handleCancellation(
+  plan: PlanSubscription,
+  customerId: NonNullable<UserPlan["customerId"]>,
+  isUserDeletion: boolean,
+) {
+  // When deleting a user we cancel subscriptions
+  // and don't need to update the UserPlan.
+  // In fact the row in the DB will be already deleted by then.
+  if (isUserDeletion && !(await getByCustomerId(db, customerId))) {
+    return;
+  }
+
+  const { unsubscribeTo } = plan;
+  const unsubscribeToPlan = plans.find((plan) => plan.id === unsubscribeTo);
+
+  let updatesAt = null;
+  if (unsubscribeToPlan && unsubscribeToPlan.type === "free") {
+    updatesAt = new Date();
+    updatesAt.setDate(updatesAt.getDate() + unsubscribeToPlan.interval);
+  }
+
+  await updateByCustomerId(db, customerId, {
+    planId: unsubscribeTo,
+    status:
+      unsubscribeToPlan && unsubscribeToPlan.type !== "subscription"
+        ? PlanStatus.ACTIVE
+        : PlanStatus.UNPAID,
+    credits:
+      unsubscribeToPlan && "credits" in unsubscribeToPlan
+        ? unsubscribeToPlan.credits
+        : 0,
+    updatedAt: new Date(),
+    updatesAt,
+  });
+
+  if (!unsubscribeToPlan) {
+    throw new Error(`Unsubsscribe plan for plan id ${plan.id} not found`);
+  }
 }

@@ -1,4 +1,16 @@
 import type { Stripe } from "stripe";
+import { env } from "./env.mjs";
+
+function getPrice(planId: number) {
+  const price = new URLSearchParams(env.STRIPE_PLAN_PRICES).get(String(planId));
+  if (!price) {
+    throw new Error(
+      `No price found for planId ${planId}. ` +
+        "Make sure that you have configured the `STRIPE_PLAN_PRICES` environment variable correctly",
+    );
+  }
+  return price;
+}
 
 type PlanId = number;
 
@@ -22,6 +34,7 @@ export type PlanFree = PlanCommon & {
     create: number;
     edit: number;
   };
+  interval: number;
 };
 
 export type PlanFreeUnlimited = PlanCommon & {
@@ -53,6 +66,8 @@ export const plans = [
       create: 3,
       edit: 2,
     },
+    // ~1 month
+    interval: 30.44,
   },
   {
     id: 1,
@@ -67,7 +82,7 @@ export const plans = [
       edit: 2,
     },
     stripe: {
-      priceId: "",
+      priceId: getPrice(1),
       mode: "subscription",
     },
     unsubscribeTo: 0,

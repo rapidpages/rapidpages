@@ -6,7 +6,11 @@ import {
   protectedProcedure,
   publicProcedure,
 } from "~/server/api/trpc";
-import { generateNewComponent, reviseComponent } from "~/server/openai";
+import {
+  AIError,
+  generateNewComponent,
+  reviseComponent,
+} from "~/server/openai";
 import { CreditsError, consumeCredits, increaseCredits } from "./plan/model";
 
 export const componentRouter = createTRPCRouter({
@@ -126,10 +130,13 @@ export const componentRouter = createTRPCRouter({
       const result = await reviseComponent(
         input.prompt,
         baseRevision.code,
-      ).catch(async () => {
-        // @todo decide whether we should refund the user if the model didn't generate a diff.
-        // This might be due to a bad user prompt so the model will still charge us.
-        if (credits.used > 0) {
+      ).catch(async (error) => {
+        if (
+          credits.used > 0 &&
+          // Do not refund when not diff was found,
+          // this might be due to bad user prompt not our fault.
+          !(error instanceof AIError && error.code == 1)
+        ) {
           await increaseCredits(ctx.db, userId, credits.used);
         }
 

@@ -39,11 +39,14 @@ AI:
 
 User Subscriptions (Payments):
 
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - the public key for the Stripe Client, used at checkout and for the customer portal
-- `STRIPE_SECRET_KEY` - the Stripe secret key, used in the backend
-- `STRIPE_WEBHOOK_SECRET` = the Stripe Webhooks secret key, used to validate signed Stripe Webhook requests
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: the public key for the Stripe Client, used at checkout and for the customer portal
+- `STRIPE_SECRET_KEY`: the Stripe secret key, used in the backend
+- `STRIPE_WEBHOOK_SECRET`: the Stripe Webhooks secret key, used to validate signed Stripe Webhook requests
+- `STRIPE_PLAN_PRICES`: the plans price ids (see the comment on .env.example for details)
 
 Switch to Test Mode on Stripe https://dashboard.stripe.com/test
+
+Configure your plans in [plans.ts](src/plans.ts).
 
 #### Test Stripe Webhooks Locally
 

@@ -42,6 +42,15 @@ export const env = createEnv({
 
     // Stripe
     STRIPE_SECRET_KEY: z.string(),
+    STRIPE_PLAN_PRICES: z.string().refine((string) => {
+      try {
+        return [...new URLSearchParams(string).entries()].every(
+          ([key, value]) => !isNaN(Number(key)) && value.startsWith("price_"),
+        );
+      } catch {
+        return false;
+      }
+    }),
   },
 
   /**
@@ -82,9 +91,10 @@ export const env = createEnv({
       process.env.RAPIDPAGES_UNSTABLE_STREAMING,
     ),
 
-    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_PLAN_PRICES: process.env.STRIPE_PLAN_PRICES,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

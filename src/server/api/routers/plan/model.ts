@@ -6,8 +6,6 @@ import {
 } from "@prisma/client";
 import { plans, type PlanTypes } from "~/plans";
 
-const AVERAGE_MONTH_DAYS = 30.44;
-
 export async function create(
   db: PrismaClient,
   userId: User["id"],
@@ -17,10 +15,10 @@ export async function create(
     throw new Error("Plan not active");
   }
 
-  const updatesAt = planConfig.type === "free" ? new Date() : null;
-  if (updatesAt) {
-    // Free plan updates in ~1 month
-    updatesAt.setDate(updatesAt.getDate() + AVERAGE_MONTH_DAYS);
+  let updatesAt = null;
+  if (planConfig.type === "free") {
+    updatesAt = new Date();
+    updatesAt.setDate(updatesAt.getDate() + planConfig.interval);
   }
 
   return db.userPlan.create({
@@ -94,7 +92,7 @@ export async function getByUserIdWithPlanInfo(
 
   if (shouldReloadFreeCredits) {
     const updatesAt = new Date(now);
-    updatesAt.setDate(updatesAt.getDate() + AVERAGE_MONTH_DAYS);
+    updatesAt.setDate(updatesAt.getDate() + plan.interval);
     userPlan = await updateByUserId(db, userId, {
       credits: plan.credits,
       updatedAt: now,
