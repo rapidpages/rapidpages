@@ -20,9 +20,9 @@ export const config = {
 /**
  * Stripe Webhooks Handler.
  *
- * Handles only subscriptions linked to plans of type "recurrent" (see `PlanRecurrent`` ~/plans.ts).
+ * Handles only subscriptions linked to plans of type "subscription" (see `PlanSubscription`` ~/plans.ts).
  *
- * IMPORTANT: The implementation below doesn't account
+ * IMPORTANT: The implementation below doesn't account for
  *            non-existent customers (`UserPlan.customerId`).
  *            This might be the case when the customer is created in
  *            the Stripe Dashboard directly and is not linked to a user in the app.
