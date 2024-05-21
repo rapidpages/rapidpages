@@ -11,9 +11,16 @@ import { authOptions } from "~/server/auth";
 import { clientComponents } from "~/utils/available-client-components";
 
 export const config = {
-  supportsResponseStreaming: env.RAPIDPAGES_UNSTABLE_STREAMING,
+  // Set the value manually because Next.js doesn't support "dynamic config"
+  // i.e. can't read env.RAPIDPAGES_UNSTABLE_STREAMING
+  supportsResponseStreaming: false,
   maxDuration: 60,
 };
+if (config.supportsResponseStreaming != env.RAPIDPAGES_UNSTABLE_STREAMING) {
+  throw new Error(
+    "generation endpoint: invalid value for config.supportsResponseStreaming",
+  );
+}
 
 const handler: NextApiHandler = async (request, response) => {
   const { prompt } = request.body;
