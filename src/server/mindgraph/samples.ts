@@ -1,11 +1,14 @@
-export const samples = [
+import { ComponentsEnum } from "./components/index.js";
+import { invoke, type GraphState } from "./index.js";
+
+export const samples: GraphState['input'][] = [
 {
       "query": "generate a landing page for a browser extension chatbot. make it compelling and selling.",
-      "components": "shadcn"
+      "components": ComponentsEnum.ShadCn
     },
     {
       query: "make hero section two column and add hero image on the 2nd column.",
-      components: "shadcn",
+      components: ComponentsEnum.ShadCn,
       "code": `
       //landing-page.tsx
       import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -104,6 +107,13 @@ export const samples = [
     },
     {
       "query": "generate a landing page for a browser extension chatbot. make it compelling and selling.",
-      "components": "nextui",
+      "components": ComponentsEnum.NextUI,
     },
   ]
+
+
+// const createSample = samples[0]
+// await invoke(createSample!);
+
+const updateSample = samples[1]
+await invoke(updateSample!);
