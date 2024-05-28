@@ -71,8 +71,9 @@ export const env = createEnv({
     GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
 
-    RAPIDPAGES_UNSTABLE_STREAMING:
-      process.env.RAPIDPAGES_UNSTABLE_STREAMING === "true",
+    RAPIDPAGES_UNSTABLE_STREAMING: Boolean(
+      process.env.RAPIDPAGES_UNSTABLE_STREAMING,
+    ),
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

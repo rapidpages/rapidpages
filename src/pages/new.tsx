@@ -1,5 +1,5 @@
 import { useSession } from "next-auth/react";
-import { useState, type ReactElement, useRef } from "react";
+import { useState, useEffect, type ReactElement, useRef } from "react";
 import { ApplicationLayout } from "~/components/AppLayout";
 import {
   ChevronRightIcon,
@@ -143,7 +143,7 @@ const NewPage: NextPageWithLayout = () => {
   };
 
   if (state.status === "generate") {
-    return (
+    return state.code.source ? (
       <Component
         component={{
           id: "",
@@ -158,6 +158,8 @@ const NewPage: NextPageWithLayout = () => {
         code={state.code}
         revisionId={""}
       />
+    ) : (
+      <Loading />
     );
   }
 
@@ -288,6 +290,51 @@ const NewForm = ({
     </div>
   );
 };
+
+const optimisticMessages = [
+  "Processing Request",
+  "Connecting to the AI",
+  "Generating",
+  "Almost ready",
+  "Generating",
+];
+
+function Loading() {
+  const [optimisticState, setOptimisticState] = useState(0);
+
+  useEffect(() => {
+    let tid;
+    if (optimisticState < optimisticMessages.length - 1) {
+      const stage = optimisticState + 1;
+      tid = setTimeout(
+        () => {
+          setOptimisticState((state) => state + 1);
+        },
+        Math.random() * (stage * 1800 - stage * 800) + stage * 800,
+      );
+    }
+    return () => {
+      tid && clearTimeout(tid);
+    };
+  }, [optimisticState]);
+
+  return (
+    <div
+      aria-live="polite"
+      className="flex flex-col gap-8 items-center justify-center w-full h-full bg-gray-100"
+    >
+      <div className="space-y-2" aria-hidden="true">
+        <div className="w-32 h-2 bg-gray-300 rounded animate-pulse" />
+        <div className="w-40 h-2 bg-gray-300 rounded animate-pulse" />
+        <div className="w-24 h-2 bg-gray-300 rounded animate-pulse" />
+        <div className="w-36 h-2 bg-gray-300 rounded animate-pulse" />
+      </div>
+      <p className="text-gray-500 loading-ellipsis">
+        {optimisticMessages[optimisticState]}
+      </p>
+    </div>
+  );
+}
 
 NewPage.getLayout = (page: ReactElement) => (
   <ApplicationLayout title="Create a new component">{page}</ApplicationLayout>
