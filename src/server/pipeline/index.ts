@@ -1,17 +1,28 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-console */
 import { StateGraph, MemorySaver, START, END } from "@langchain/langgraph";
+import { z } from "zod";
+import { ChatOpenAI } from "@langchain/openai";
+import { PromptTemplate } from "@langchain/core/prompts";
+
+import samples from "./samples.json" assert { type: "json" };
+import { compile } from "./lib/compile-code.js";
+import { type ComponentsEnum, getComponentsList } from "./components/index.js";
 
 function last<T>(arr?: T[]): T | undefined {
   return arr?.[arr.length - 1];
 }
 
-type Task = {
-  name: string;
-  description: string;
-  suggestedIcons: string[];
-  suggestedComponents: string[];
-};
+const taskScheme = z.object({
+  name: z.string().describe("Short name of the task"),
+  description: z.string().describe("Description of the task"),
+  suggestedComponents: z
+    .array(z.string()) // todo: make enum
+    .describe("Suggested components to use"),
+  suggestedIcons: z.array(z.string()).describe("Suggested icons to use"),
+});
+
+type Task = z.infer<typeof taskScheme>;
 
 type BaseIteration = {
   index: number;
@@ -34,9 +45,10 @@ type TestIteration = Omit<CodeIteration, "status"> & {
 
 type Iteration = TodoIteration | CodeIteration | TestIteration;
 
-type GraphState = {
+export type GraphState = {
   input: {
     query: string;
+    components?: ComponentsEnum;
     code?: string;
   };
   iterations?: Iteration[];
@@ -73,16 +85,41 @@ type GraphNode =
   | typeof TEST_CODE
   | typeof MAKE_FIX_TASK;
 
-const makeCreateTaskNode = (state: GraphState): Partial<GraphState> => {
+const model = new ChatOpenAI({
+  model: "gpt-3.5-turbo",
+  temperature: 0,
+});
+
+const taskModel = model.withStructuredOutput(taskScheme, {
+  name: "task",
+});
+
+const createTaskPromptTemplate = PromptTemplate.fromTemplate(`
+You're a frontend engineer expert.
+You have to generate a task for a junior frontend engineer to implement based on the user query.
+Use existing components and icons from the UI library.
+
+The user query is: {query}.
+
+Existing components:
+{components}
+`);
+
+const makeCreateTaskNode = async (
+  state: GraphState,
+): Promise<Partial<GraphState>> => {
+  const chain = createTaskPromptTemplate.pipe(taskModel);
+  const task = await chain.invoke({
+    query: state.input.query,
+    components: getComponentsList(state.input.components)
+      .map((component) => `- ${component.name}: ${component.description}`)
+      .join("\n"),
+    // todo: add existing icons list
+  });
   const todoIteration: TodoIteration = {
     index: state.iterations?.length || 0,
     status: "todo",
-    task: {
-      name: "create",
-      description: "create task description",
-      suggestedIcons: [],
-      suggestedComponents: [],
-    },
+    task: task,
   };
 
   return {
@@ -90,16 +127,39 @@ const makeCreateTaskNode = (state: GraphState): Partial<GraphState> => {
   };
 };
 
-const makeUpdateTaskNode = (state: GraphState): Partial<GraphState> => {
+const updateTaskPromptTemplate = PromptTemplate.fromTemplate(`
+You're a frontend engineer expert.
+You have to update the task for a junior frontend engineer to implement based on the user query.
+Use existing components and icons from the UI library.
+
+Existing code:
+\`\`\`tsx
+{code}
+'\`\`\`
+
+The user query is: {query}.
+
+Existing components:
+{components}
+`);
+
+const makeUpdateTaskNode = async (
+  state: GraphState,
+): Promise<Partial<GraphState>> => {
+  const chain = updateTaskPromptTemplate.pipe(taskModel);
+
+  const task = await chain.invoke({
+    query: state.input.query,
+    components: getComponentsList(state.input.components)
+      .map((component) => `- ${component.name}: ${component.description}`)
+      .join("\n"),
+    code: state.input.code!,
+  });
+
   const todoIteration: TodoIteration = {
     index: state.iterations?.length || 0,
     status: "todo",
-    task: {
-      name: "update",
-      description: "update task description",
-      suggestedIcons: [],
-      suggestedComponents: [],
-    },
+    task: task,
   };
 
   return {
@@ -107,12 +167,77 @@ const makeUpdateTaskNode = (state: GraphState): Partial<GraphState> => {
   };
 };
 
-const generateCodeNode = (state: GraphState): Partial<GraphState> => {
+const generateCodePromptTemplate = PromptTemplate.fromTemplate(`
+You're a frontend engineer and TypeScript, React, Tailwind expert.
+- You have to generate UI code based on the task description.
+- You may use only available components and icons from the UI library,
+or generate components yourself from scratch.
+- Don't use unknown imports or components.
+- Don't use any external libraries.
+- If you need to create multiple components, create them in separate files.
+- Use tailwind to style the components.
+
+The task description is:
+{description}.
+
+Available components:
+{components}
+
+Available icons:
+{icons}
+
+Your output code will be directly saved on the file and used on production,
+so make sure it's correct, and try your best to make the UI perfect.
+`);
+
+const codeScheme = z.object({
+  files: z.array(
+    z.object({
+      name: z
+        .string()
+        .describe("Name of the file including its extension in kebab case"),
+      content: z.string().describe("Content of the file"),
+    }),
+  ),
+});
+
+const codeModel = model.withStructuredOutput(codeScheme, {
+  name: "files",
+});
+
+const generateCodeNode = async (
+  state: GraphState,
+): Promise<Partial<GraphState>> => {
   const iteration = last(state.iterations);
   if (!iteration || iteration.status !== "todo") {
     // or throw an error or something
     throw new Error("Invalid state");
   }
+
+  const chain = generateCodePromptTemplate.pipe(codeModel);
+
+  const code = await chain.invoke({
+    description: iteration.task.description,
+    components: getComponentsList(state.input.components)
+      .filter((component) =>
+        iteration.task.suggestedComponents.includes(component.name),
+      )
+      .map(
+        (component) =>
+          `
+1. ${component.name}
+Description: ${component.description}
+Usage example:
+\`\`\`tsx
+${component.docs.import.code}
+${component.docs.use.map((use) => use.code).join("\n")}
+\`\`\`
+
+`,
+      )
+      .join("\n\n"),
+    icons: "",
+  });
 
   return {
     iterations: [
@@ -120,7 +245,9 @@ const generateCodeNode = (state: GraphState): Partial<GraphState> => {
       {
         ...iteration,
         status: "coded",
-        code: "some code",
+        code: code.files
+          .map((file) => `//${file.name}\n${file.content}`)
+          .join("\n\n"),
       },
     ],
   };
@@ -140,11 +267,18 @@ const testCodeNode = (state: GraphState): Partial<GraphState> => {
         {
           ...iteration,
           status: "tested",
-          errors: ["some error"],
+          errors: [],
         },
       ],
     };
   }
+
+  const errors = compile([
+    {
+      name: "page.tsx",
+      content: iteration.code,
+    },
+  ]);
 
   return {
     iterations: [
@@ -152,31 +286,56 @@ const testCodeNode = (state: GraphState): Partial<GraphState> => {
       {
         ...iteration,
         status: "tested",
+        errors,
       },
     ],
   };
 };
 
-const makeFixTaskNode = (state: GraphState): Partial<GraphState> => {
+const makeFixTaskPromptTemplate = PromptTemplate.fromTemplate(`
+You're a frontend engineer expert.
+You have to fix the code based on the errors.
+Use existing components and icons from the UI library.
+
+The errors are:
+{errors}
+
+Existing code:
+\`\`\`tsx
+{code}
+'\`\`\`
+`);
+
+const makeFixTaskNode = async (
+  state: GraphState,
+): Promise<Partial<GraphState>> => {
   const iteration = last(state.iterations);
-  if (!iteration || iteration.status !== "tested") {
+  if (
+    !iteration ||
+    iteration.status !== "tested" ||
+    iteration.errors?.length == 0
+  ) {
     // or throw an error or something
     throw new Error("Invalid state");
   }
+
+  const chain = makeFixTaskPromptTemplate.pipe(codeModel);
+
+  const fixedCode = await chain.invoke({
+    errors: iteration.errors!.join("\n"),
+    code: iteration.code,
+  });
 
   return {
     iterations: [
       ...state.iterations!,
       {
         index: state.iterations!.length,
-        task: {
-          ...iteration.task,
-          // create a new task with the same description
-          // and suggested components and icons
-          // but with a new name
-          name: `fix ${iteration.task.name}`,
-        },
-        status: "todo",
+        task: iteration.task,
+        status: "coded",
+        code: fixedCode.files
+          .map((file) => `//${file.name}\n${file.content}`)
+          .join("\n\n"),
       },
     ],
   };
@@ -208,57 +367,45 @@ const startEdge = (state: GraphState): GraphNode => {
 const workflow = new StateGraph<GraphState, Partial<GraphState>, GraphNode>({
   channels: {
     input: {
-      value: (_, updated) => updated,
+      value: (existing, updated) => updated ?? existing,
     },
     iterations: {
-      value: (_, updated) => updated,
+      value: (existing, updated) => updated ?? existing,
     },
   },
 });
 
-workflow.addNode<GraphNode>(MAKE_UPDATE_TASK, makeUpdateTaskNode);
-workflow.addNode<GraphNode>(MAKE_CREATE_TASK, makeCreateTaskNode);
-workflow.addNode<GraphNode>(GENERATE_CODE, generateCodeNode);
-workflow.addNode<GraphNode>(TEST_CODE, testCodeNode);
-workflow.addNode<GraphNode>(MAKE_FIX_TASK, makeFixTaskNode);
+const graph = workflow
+  .addNode<GraphNode>(MAKE_CREATE_TASK, makeCreateTaskNode)
+  .addNode<GraphNode>(MAKE_UPDATE_TASK, makeUpdateTaskNode)
+  .addNode<GraphNode>(GENERATE_CODE, generateCodeNode)
+  .addNode<GraphNode>(TEST_CODE, testCodeNode)
+  .addNode<GraphNode>(MAKE_FIX_TASK, makeFixTaskNode)
+  .addConditionalEdges(START, startEdge)
+  .addEdge(MAKE_CREATE_TASK, GENERATE_CODE)
+  .addEdge(MAKE_UPDATE_TASK, GENERATE_CODE)
+  .addEdge(GENERATE_CODE, TEST_CODE)
+  .addConditionalEdges(TEST_CODE, testCodeEdge)
+  .addEdge(MAKE_FIX_TASK, GENERATE_CODE)
+  .compile({ checkpointer: new MemorySaver() });
 
-workflow.addConditionalEdges(START, startEdge);
-workflow.addEdge(MAKE_CREATE_TASK, GENERATE_CODE);
-workflow.addEdge(MAKE_UPDATE_TASK, GENERATE_CODE);
-workflow.addEdge(GENERATE_CODE, TEST_CODE);
-workflow.addConditionalEdges(TEST_CODE, testCodeEdge);
-workflow.addEdge(MAKE_FIX_TASK, GENERATE_CODE);
-
-const graph = workflow.compile({ checkpointer: new MemorySaver() });
 const config = { configurable: { thread_id: "some-thread-id" } };
 
-const invoke = async (input: GraphState) => {
-  for await (const step of await graph.stream(
-    {
-      input,
-    },
-    { ...config, streamMode: "values" },
-  )) {
-    console.log(JSON.stringify(step, null, 2));
+export const invoke = async (input: GraphState["input"]) => {
+  let result: GraphState = { input };
+  for await (const step of await graph.stream({ input } as GraphState, {
+    ...config,
+    streamMode: "values",
+  })) {
+    const state = step as GraphState;
+    const lastStep = last(state.iterations);
+    console.log(lastStep ?? state.input);
+    result = state;
   }
 };
 
-const samples = [
-  {
-    input: {
-      query:
-        "generate a landing page for a browser extension chatbot. make it compelling and selling.",
-    },
-  },
-  {
-    input: {
-      query:
-        "update the landing page for a browser extension chatbot. make it compelling and selling.",
-      code: "todo: some code",
-    },
-  },
-];
+const createSample = samples[0] as GraphState["input"];
+await invoke(createSample!);
 
-for (const sample of samples) {
-  invoke(sample);
-}
+// const updateSample = samples[1];
+// await invoke(updateSample!);

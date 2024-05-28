@@ -5,5 +5,6 @@ This is a code gen thought pipeline experiment.
 
 ## How to run
 ```bash
-node --no-warnings --loader ts-node/esm index.ts
+$ export OPENAI_API_KEY=<your-api-key>
+$ node --no-warnings --loader ts-node/esm index.ts
 ```

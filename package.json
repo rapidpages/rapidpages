@@ -57,6 +57,7 @@
     "zod": "^3.21.4"
   },
   "devDependencies": {
+    "@types/babel__core": "^7.20.5",
     "@types/babel__standalone": "^7.1.5",
     "@types/eslint": "^8.44.2",
     "@types/node": "^18.16.0",
