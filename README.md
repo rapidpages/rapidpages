@@ -37,6 +37,27 @@ AI:
 - `OPENAI_API_KEY`: you need to get a key from [OpenAI](https://platform.openai.com/)
 - (optional) `RAPIDPAGES_UNSTABLE_STREAMING`: you can enable streaming generative UIs by setting this value to `true`. Streaming is only supported when deploying to Vercel Serverless or long running processes (eg. Docker). If deploying to Vercel you need to set `supportsResponseStreaming: true` manually in `pages/api/generate.ts` - this is because Next.js doesn't support dynamic config exports and this configuration option cannot depend on an environment variable.
 
+User Subscriptions (Payments):
+
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: the public key for the Stripe Client, used at checkout and for the customer portal
+- `STRIPE_SECRET_KEY`: the Stripe secret key, used in the backend
+- `STRIPE_WEBHOOK_SECRET`: the Stripe Webhooks secret key, used to validate signed Stripe Webhook requests
+- `STRIPE_PLAN_PRICES`: the plans price ids (see the comment on .env.example for details)
+
+Switch to Test Mode on Stripe https://dashboard.stripe.com/test
+
+Configure your plans in [plans.ts](src/plans.ts).
+
+#### Test Stripe Webhooks Locally
+
+Install the Stripe CLI https://docs.stripe.com/stripe-cli and execute the following command:
+
+```
+stripe listen --forward-to=localhost:3000/api/stripe
+```
+
+The CLI will generate and log a webhook signing secret in the console. You will need to configure this as the `STRIPE_WEBHOOK_SECRET` environment variable.
+
 #### Run Rapidpages on Host
 
 Create the database & run the application

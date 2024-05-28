@@ -4,6 +4,7 @@ import { cn } from "~/utils/utils";
 import { api } from "~/utils/api";
 import { useRouter } from "next/router";
 import { toast } from "react-hot-toast";
+import { TRPCClientError } from "@trpc/client";
 
 export const Chat = ({ revisionId }: { revisionId: string }) => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -25,18 +26,26 @@ export const Chat = ({ revisionId }: { revisionId: string }) => {
     e.preventDefault();
     setLoading(true);
 
-    const newRevisionId = await reviseComponent.mutateAsync({
-      revisionId,
-      prompt: input,
-    });
+    try {
+      const newRevisionId = await reviseComponent.mutateAsync({
+        revisionId,
+        prompt: input,
+      });
 
-    if (newRevisionId === null || newRevisionId.status === "error") {
-      toast.error("Something went wrong while trying to revise the component");
-      setLoading(false);
-      return;
+      if (newRevisionId.status === "error") {
+        throw new Error();
+      }
+      router.push(`/r/${newRevisionId.data.revisionId}`);
+    } catch (error) {
+      let message = "Something went wrong while trying to revise the component";
+
+      if (error instanceof TRPCClientError) {
+        message = error.message;
+      }
+
+      toast.error(message);
     }
 
-    router.push(`/r/${newRevisionId.data.revisionId}`);
     setLoading(false);
   };
 
@@ -45,7 +54,7 @@ export const Chat = ({ revisionId }: { revisionId: string }) => {
   };
 
   return (
-    <div className="relative mb-3 flex w-full rounded-lg  border border-gray-300 bg-gray-200">
+    <div className="relative flex w-full rounded-lg  border border-gray-300 bg-gray-200">
       <div className="relative min-w-0 flex-1">
         <form className="relative" onSubmit={handleSubmit} ref={formRef}>
           <div className="overflow-hidden rounded-lg bg-white  focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">

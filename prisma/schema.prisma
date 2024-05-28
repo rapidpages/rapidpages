@@ -53,6 +53,7 @@ model User {
     accounts   Account[]
     sessions   Session[]
     components Component[]
+    plan       UserPlan?
 }
 
 enum ComponentVisibility {
@@ -96,4 +97,25 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+}
+
+enum PlanStatus {
+    ACTIVE
+    UNPAID
+    WILL_CANCEL
+}
+
+model UserPlan {
+    id                  String @id @default(cuid())
+    userId              String @unique
+    planId              Int
+    status              PlanStatus @default(ACTIVE)
+    updatedAt           DateTime @default(now())
+    updatesAt           DateTime?
+    credits             Int @default(0)
+
+    // Stripe information
+    customerId          String? @unique
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

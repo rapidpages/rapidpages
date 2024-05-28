@@ -6,7 +6,12 @@ import {
   protectedProcedure,
   publicProcedure,
 } from "~/server/api/trpc";
-import { generateNewComponent, reviseComponent } from "~/server/openai";
+import {
+  AIError,
+  generateNewComponent,
+  reviseComponent,
+} from "~/server/openai";
+import { CreditsError, consumeCredits, increaseCredits } from "./plan/model";
 
 export const componentRouter = createTRPCRouter({
   createComponent: protectedProcedure
@@ -22,7 +27,33 @@ export const componentRouter = createTRPCRouter({
         });
       }
 
-      result = await generateNewComponent(input);
+      let credits = {
+        left: 0,
+        used: 0,
+      };
+
+      try {
+        credits = await consumeCredits(ctx.db, "create", userId);
+      } catch (error) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            error instanceof CreditsError
+              ? error.message
+              : "An error occured while validating your credits, please contact us.",
+        });
+      }
+
+      result = await generateNewComponent(input).catch(async () => {
+        if (credits.used > 0) {
+          await increaseCredits(ctx.db, userId, credits.used);
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "An AI-model related error occurred",
+        });
+      });
 
       const component = await ctx.db.component.create({
         data: {
@@ -49,6 +80,7 @@ export const componentRouter = createTRPCRouter({
         status: "success",
         data: {
           componentId: component.id,
+          credits,
         },
       };
     }),
@@ -78,7 +110,41 @@ export const componentRouter = createTRPCRouter({
         });
       }
 
-      const result = await reviseComponent(input.prompt, baseRevision.code);
+      let credits = {
+        left: 0,
+        used: 0,
+      };
+
+      try {
+        credits = await consumeCredits(ctx.db, "edit", userId);
+      } catch (error) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            error instanceof CreditsError
+              ? error.message
+              : "An error occured while validating your credits, please contact us.",
+        });
+      }
+
+      const result = await reviseComponent(
+        input.prompt,
+        baseRevision.code,
+      ).catch(async (error) => {
+        if (
+          credits.used > 0 &&
+          // Do not refund when not diff was found,
+          // this might be due to bad user prompt not our fault.
+          !(error instanceof AIError && error.code == 1)
+        ) {
+          await increaseCredits(ctx.db, userId, credits.used);
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "An AI-model related error occurred",
+        });
+      });
 
       const newRevision = await ctx.db.componentRevision.create({
         data: {
@@ -114,6 +180,7 @@ export const componentRouter = createTRPCRouter({
         status: "success",
         data: {
           revisionId: newRevision.id,
+          credits,
         },
       };
     }),

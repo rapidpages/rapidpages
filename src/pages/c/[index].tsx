@@ -13,7 +13,7 @@ import { isModern, modernTemplate } from "~/utils/utils";
 
 const ComponentPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>
-> = ({ component, rsc }) => {
+> = ({ plan, component, rsc }) => {
   // Find the last revision and return it's id
   const lastRevisionId =
     component.revisions[component.revisions.length - 1]!.id;
@@ -30,6 +30,7 @@ const ComponentPage: NextPageWithLayout<
         source,
         rsc,
       }}
+      plan={plan}
     />
   );
 };
@@ -42,7 +43,7 @@ export const getServerSideProps = async (
   context: GetServerSidePropsContext,
 ) => {
   const componentId = context.params?.index as string;
-  const { ssg } = await ssgHelper(context);
+  const { ssg, session } = await ssgHelper(context);
 
   const component = await ssg.component.getComponent.fetch(componentId);
 
@@ -51,8 +52,20 @@ export const getServerSideProps = async (
       notFound: true,
     };
   } else {
+    let plan = null;
+
+    if (session) {
+      const planInfo = await ssg.user.getPlanOrCreate.fetch();
+
+      plan = {
+        type: planInfo.plan.type,
+        credits: planInfo.userPlan.credits,
+      };
+    }
+
     return {
       props: {
+        plan,
         component,
         rsc: isModern(component.code)
           ? await renderToReactServerComponents(

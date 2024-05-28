@@ -13,7 +13,7 @@ import { isModern, modernTemplate } from "~/utils/utils";
 
 const RevisionPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>
-> = ({ component, revisionId, rsc }) => {
+> = ({ component, revisionId, rsc, plan }) => {
   let source = component.revisions.find(
     (revision) => revision.id === revisionId,
   )!.code;
@@ -27,6 +27,7 @@ const RevisionPage: NextPageWithLayout<
       component={component}
       revisionId={revisionId}
       code={{ source, rsc }}
+      plan={plan}
     />
   );
 };
@@ -39,7 +40,7 @@ export const getServerSideProps = async (
   context: GetServerSidePropsContext,
 ) => {
   const revisionId = context.params?.index as string;
-  const { ssg } = await ssgHelper(context);
+  const { ssg, session } = await ssgHelper(context);
 
   const component =
     await ssg.component.getComponentFromRevision.fetch(revisionId);
@@ -49,12 +50,24 @@ export const getServerSideProps = async (
       notFound: true,
     };
   } else {
+    let plan = null;
+
+    if (session) {
+      const planInfo = await ssg.user.getPlanOrCreate.fetch();
+
+      plan = {
+        type: planInfo.plan.type,
+        credits: planInfo.userPlan.credits,
+      };
+    }
+
     const code = component.revisions.find(
       (revision) => revision.id === revisionId,
     )!.code;
 
     return {
       props: {
+        plan,
         component,
         revisionId,
         rsc: isModern(code)

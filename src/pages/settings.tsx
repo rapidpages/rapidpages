@@ -1,22 +1,27 @@
 import { type ReactElement } from "react";
 import { ApplicationLayout } from "~/components/AppLayout";
 import { Button } from "~/components/Button";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { api } from "~/utils/api";
 import { type NextPageWithLayout } from "./_app";
-import { LoadingPage } from "~/components/LoadingPage";
 import Image from "next/image";
+import {
+  type InferGetServerSidePropsType,
+  type GetServerSidePropsContext,
+} from "next";
+import { ssgHelper } from "~/utils/ssg";
+import { PlanStatus } from "@prisma/client";
+import toast from "react-hot-toast";
+import { TRPCClientError } from "@trpc/client";
+import { type PlanTypes } from "~/plans";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
-const SettingsPage: NextPageWithLayout = () => {
-  const { data: session, status } = useSession({ required: true });
-  const isSessionLoading = status === "loading";
+const SettingsPage: NextPageWithLayout<
+  InferGetServerSidePropsType<typeof getServerSideProps>
+> = ({ plan, user }) => {
+  const goToCustomerPortal = api.plan.createCustomerPortalLink.useMutation();
+
   const deleteUser = api.user.deleteUser.useMutation();
-
-  if (isSessionLoading || !session) {
-    return <LoadingPage />;
-  }
-
-  const user = session.user;
 
   return (
     <div className="h-full bg-neutral-100 py-10">
@@ -91,6 +96,81 @@ const SettingsPage: NextPageWithLayout = () => {
             <div className="border-t border-gray-100">
               <dl className="divide-y divide-gray-100">
                 <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-900">Plan</dt>
+                  <dd className="mt-1 flex text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
+                    <div className="grow">
+                      <p className="font-bold">{plan.name}</p>
+                      {"credits" in plan ? (
+                        <p>
+                          You have{" "}
+                          <span className="font-bold">{plan.credits}</span>
+                          {plan.type === "free" ? " free " : " "}credits left.
+                        </p>
+                      ) : null}
+                      {plan.type !== "free-unlimited" && plan.updatesAt ? (
+                        <p>
+                          {plan.status === PlanStatus.WILL_CANCEL
+                            ? "Will be cancelled"
+                            : "Renews"}{" "}
+                          on {plan.updatesAt.toLocaleString()}
+                        </p>
+                      ) : null}
+                      {plan.status === PlanStatus.UNPAID ? (
+                        <p className="text-red-500 mt-2 flex gap-2">
+                          <ExclamationTriangleIcon
+                            className="stroke-2"
+                            style={{ flex: "0 0 1.3em" }}
+                          />{" "}
+                          <span className="flex-1">
+                            The plan is not active either because of a failed
+                            payment or techincal issues. Go to the Manage plan
+                            page. If the issue persists feel free to contact us.
+                          </span>
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex basis-2/6 items-start justify-end">
+                      {plan.type === "subscription" ? (
+                        <Button
+                          size="normal"
+                          className={
+                            plan.status === PlanStatus.UNPAID
+                              ? "bg-red-500"
+                              : undefined
+                          }
+                          onClick={async () => {
+                            try {
+                              const { success, data } =
+                                await goToCustomerPortal.mutateAsync();
+
+                              if (!success) {
+                                throw new Error();
+                              }
+
+                              const { url } = data;
+                              window.location.assign(url);
+                            } catch (error) {
+                              toast.error(
+                                error instanceof TRPCClientError
+                                  ? error.message
+                                  : "Something went wrong.",
+                              );
+                            }
+                          }}
+                        >
+                          Manage
+                        </Button>
+                      ) : (
+                        <Button href="/plans">Check Plans</Button>
+                      )}
+                    </div>
+                  </dd>
+                </div>
+              </dl>
+            </div>
+            <div className="border-t border-gray-100">
+              <dl className="divide-y divide-gray-100">
+                <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-900">
                     Delete Account
                   </dt>
@@ -104,11 +184,15 @@ const SettingsPage: NextPageWithLayout = () => {
                       <Button
                         variant="white"
                         size="normal"
-                        onClick={() => {
-                          deleteUser.mutate();
-                          signOut({
-                            callbackUrl: `${window.location.origin}`,
-                          });
+                        onClick={async () => {
+                          try {
+                            deleteUser.mutate();
+                            signOut({
+                              callbackUrl: `${window.location.origin}`,
+                            });
+                          } catch {
+                            toast.error("Something went wrong");
+                          }
                         }}
                         // className="rounded-md bg-red-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-400"
                       >
@@ -129,5 +213,33 @@ const SettingsPage: NextPageWithLayout = () => {
 SettingsPage.getLayout = (page: ReactElement) => (
   <ApplicationLayout title="Settings">{page}</ApplicationLayout>
 );
+
+export const getServerSideProps = async (
+  context: GetServerSidePropsContext,
+) => {
+  const { ssg, session } = await ssgHelper(context);
+
+  if (!session) {
+    return {
+      notFound: true,
+    };
+  }
+
+  const { plan, userPlan } = await ssg.user.getPlanOrCreate.fetch();
+
+  return {
+    props: {
+      plan: {
+        type: plan.type as PlanTypes["type"],
+        name: plan.name,
+        description: "description" in plan ? plan.description : null,
+        status: userPlan.status,
+        updatesAt: userPlan.updatesAt,
+        credits: userPlan.credits,
+      },
+      user: session.user,
+    },
+  };
+};
 
 export default SettingsPage;

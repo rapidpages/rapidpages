@@ -9,6 +9,8 @@ import GithubProvider from "next-auth/providers/github";
 
 import { env } from "~/env.mjs";
 import { db } from "~/server/db";
+import { create as createPlan } from "./api/routers/plan/model";
+import { defaultPlan } from "~/plans";
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -63,7 +65,10 @@ export const authOptions: NextAuthOptions = {
      */
   ],
   events: {
-    createUser: async () => {
+    createUser: async ({ user }) => {
+      // Automatically associate the user plan.
+      await createPlan(db, user.id, defaultPlan);
+
       // Notify Slack that a new user signed up
       // sendSlackMessage(`New user signed up: ${user.email}`);
     },

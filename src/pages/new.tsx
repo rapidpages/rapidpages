@@ -59,6 +59,15 @@ const NewPage: NextPageWithLayout = () => {
     })
       .then(async (response) => {
         if (!response.ok) {
+          if (response.status === 403) {
+            // Credits error
+            setState({
+              status: "error",
+              prompt,
+            });
+            toast.error(response.statusText);
+            return;
+          }
           throw new Error(response.statusText);
         }
 
@@ -100,7 +109,9 @@ const NewPage: NextPageWithLayout = () => {
               .map((chunk) => JSON.parse(chunk));
 
             data.forEach((data) => {
-              if (data.done) {
+              if (data.error) {
+                throw new Error(data.error);
+              } else if (data.done) {
                 flushSync(() => {
                   setState({
                     status: "generate",
@@ -157,6 +168,7 @@ const NewPage: NextPageWithLayout = () => {
         }}
         code={state.code}
         revisionId={""}
+        plan={null}
       />
     ) : (
       <Loading />
