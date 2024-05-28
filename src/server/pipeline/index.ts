@@ -4,14 +4,16 @@ import { StateGraph, MemorySaver, START, END } from "@langchain/langgraph";
 import { z } from "zod";
 import { ChatOpenAI } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
+import last from "lodash.last";
 
-import samples from "./samples.json" assert { type: "json" };
+import { samples } from "./samples.js";
 import { compile } from "./lib/compile-code.js";
-import { type ComponentsEnum, getComponentsList } from "./components/index.js";
-
-function last<T>(arr?: T[]): T | undefined {
-  return arr?.[arr.length - 1];
-}
+import {
+  type ComponentsEnum,
+  getComponentsList,
+  formatComponentMeta,
+  formatComponentMetaShort,
+} from "./components/index.js";
 
 const taskScheme = z.object({
   name: z.string().describe("Short name of the task"),
@@ -25,25 +27,32 @@ const taskScheme = z.object({
 type Task = z.infer<typeof taskScheme>;
 
 type BaseIteration = {
-  index: number;
   task: Task;
 };
 
-type TodoIteration = BaseIteration & {
-  status: "todo";
+type PlanIteration = BaseIteration & {
+  status: "planned";
 };
 
-type CodeIteration = BaseIteration & {
-  status: "coded";
+type GenerateIteration = BaseIteration & {
+  status: "generated";
   code: string;
 };
 
-type TestIteration = Omit<CodeIteration, "status"> & {
+type TestIteration = Omit<GenerateIteration, "status"> & {
   status: "tested";
   errors?: string[];
 };
 
-type Iteration = TodoIteration | CodeIteration | TestIteration;
+type FixIteration = Omit<GenerateIteration, "status"> & {
+  status: "fixed";
+};
+
+type Iteration =
+  | PlanIteration
+  | GenerateIteration
+  | TestIteration
+  | FixIteration;
 
 export type GraphState = {
   input: {
@@ -58,8 +67,8 @@ export type GraphState = {
  *       make-create-task
  *      ↑               ↓
  *  start               generate-code  →  test-code → end
- *      ↓               ↑          ↑       ↓
- *       make-update-task           fix-code
+ *      ↓               ↑                  ↓     ↑
+ *       make-update-task                  fix-code
  **/
 
 // Generates a new task for generating code from scratch
@@ -71,7 +80,7 @@ const GENERATE_CODE = "generate-code";
 // Tests the generated code
 const TEST_CODE = "test-code";
 // Generates a new task for fixing the code
-const MAKE_FIX_TASK = "make-fix-task";
+const FIX_CODE = "make-fix-task";
 
 // Maximum number of fix iterations
 const MAX_ALLOWED_FIX_ITERATIONS = 3;
@@ -83,10 +92,10 @@ type GraphNode =
   | typeof MAKE_UPDATE_TASK
   | typeof GENERATE_CODE
   | typeof TEST_CODE
-  | typeof MAKE_FIX_TASK;
+  | typeof FIX_CODE;
 
 const model = new ChatOpenAI({
-  model: "gpt-3.5-turbo",
+  model: "gpt-4o",
   temperature: 0,
 });
 
@@ -111,26 +120,25 @@ const makeCreateTaskNode = async (
   const chain = createTaskPromptTemplate.pipe(taskModel);
   const task = await chain.invoke({
     query: state.input.query,
-    components: getComponentsList(state.input.components)
-      .map((component) => `- ${component.name}: ${component.description}`)
+    components: getComponentsList(state.input.components || null, [])
+      .map(formatComponentMetaShort)
       .join("\n"),
-    // todo: add existing icons list
   });
-  const todoIteration: TodoIteration = {
-    index: state.iterations?.length || 0,
-    status: "todo",
-    task: task,
-  };
-
   return {
-    iterations: [...(state.iterations || []), todoIteration],
+    iterations: [
+      ...(state.iterations || []),
+      {
+        status: "planned",
+        task: task,
+      },
+    ],
   };
 };
 
 const updateTaskPromptTemplate = PromptTemplate.fromTemplate(`
 You're a frontend engineer expert.
 You have to update the task for a junior frontend engineer to implement based on the user query.
-Use existing components and icons from the UI library.
+Use existing components and icons from the UI library as well as referenced in the existing code.
 
 Existing code:
 \`\`\`tsx
@@ -150,20 +158,20 @@ const makeUpdateTaskNode = async (
 
   const task = await chain.invoke({
     query: state.input.query,
-    components: getComponentsList(state.input.components)
-      .map((component) => `- ${component.name}: ${component.description}`)
+    components: getComponentsList(state.input.components || null, [])
+      .map(formatComponentMetaShort)
       .join("\n"),
     code: state.input.code!,
   });
 
-  const todoIteration: TodoIteration = {
-    index: state.iterations?.length || 0,
-    status: "todo",
-    task: task,
-  };
-
   return {
-    iterations: [...(state.iterations || []), todoIteration],
+    iterations: [
+      ...(state.iterations || []),
+      {
+        status: "planned",
+        task: task,
+      },
+    ],
   };
 };
 
@@ -176,6 +184,12 @@ or generate components yourself from scratch.
 - Don't use any external libraries.
 - If you need to create multiple components, create them in separate files.
 - Use tailwind to style the components.
+- If not existing code is provided, create a new file.
+
+Existing code:
+\`\`\`tsx
+{code}
+'\`\`\`
 
 The task description is:
 {description}.
@@ -209,34 +223,22 @@ const generateCodeNode = async (
   state: GraphState,
 ): Promise<Partial<GraphState>> => {
   const iteration = last(state.iterations);
-  if (!iteration || iteration.status !== "todo") {
+  if (!iteration || iteration.status !== "planned") {
     // or throw an error or something
     throw new Error("Invalid state");
   }
 
   const chain = generateCodePromptTemplate.pipe(codeModel);
-
   const code = await chain.invoke({
     description: iteration.task.description,
-    components: getComponentsList(state.input.components)
-      .filter((component) =>
-        iteration.task.suggestedComponents.includes(component.name),
-      )
-      .map(
-        (component) =>
-          `
-1. ${component.name}
-Description: ${component.description}
-Usage example:
-\`\`\`tsx
-${component.docs.import.code}
-${component.docs.use.map((use) => use.code).join("\n")}
-\`\`\`
-
-`,
-      )
-      .join("\n\n"),
+    components: getComponentsList(
+      state.input.components || null,
+      iteration.task.suggestedComponents,
+    )
+      .map(formatComponentMeta)
+      .join("\n"),
     icons: "",
+    code: state.input.code || "",
   });
 
   return {
@@ -244,7 +246,7 @@ ${component.docs.use.map((use) => use.code).join("\n")}
       ...state.iterations!.slice(0, -1),
       {
         ...iteration,
-        status: "coded",
+        status: "generated",
         code: code.files
           .map((file) => `//${file.name}\n${file.content}`)
           .join("\n\n"),
@@ -255,30 +257,25 @@ ${component.docs.use.map((use) => use.code).join("\n")}
 
 const testCodeNode = (state: GraphState): Partial<GraphState> => {
   const iteration = last(state.iterations);
-  if (!iteration || iteration.status !== "coded") {
+  if (
+    !iteration ||
+    (iteration.status !== "generated" && iteration.status !== "fixed")
+  ) {
     // or throw an error or something
     throw new Error("Invalid state");
   }
 
-  if (state.iterations!.length < MAX_ALLOWED_FIX_ITERATIONS) {
+  if (state.iterations!.length > MAX_ALLOWED_FIX_ITERATIONS) {
     return {
       iterations: [
         ...state.iterations!.slice(0, -1),
         {
           ...iteration,
           status: "tested",
-          errors: [],
         },
       ],
     };
   }
-
-  const errors = compile([
-    {
-      name: "page.tsx",
-      content: iteration.code,
-    },
-  ]);
 
   return {
     iterations: [
@@ -286,13 +283,18 @@ const testCodeNode = (state: GraphState): Partial<GraphState> => {
       {
         ...iteration,
         status: "tested",
-        errors,
+        errors: compile([
+          {
+            name: "page.tsx",
+            content: iteration.code,
+          },
+        ]),
       },
     ],
   };
 };
 
-const makeFixTaskPromptTemplate = PromptTemplate.fromTemplate(`
+const fixCodePromptTemplate = PromptTemplate.fromTemplate(`
 You're a frontend engineer expert.
 You have to fix the code based on the errors.
 Use existing components and icons from the UI library.
@@ -304,11 +306,12 @@ Existing code:
 \`\`\`tsx
 {code}
 '\`\`\`
+
+Available components:
+{components}
 `);
 
-const makeFixTaskNode = async (
-  state: GraphState,
-): Promise<Partial<GraphState>> => {
+const fixCodeNode = async (state: GraphState): Promise<Partial<GraphState>> => {
   const iteration = last(state.iterations);
   if (
     !iteration ||
@@ -319,20 +322,25 @@ const makeFixTaskNode = async (
     throw new Error("Invalid state");
   }
 
-  const chain = makeFixTaskPromptTemplate.pipe(codeModel);
+  const chain = fixCodePromptTemplate.pipe(codeModel);
 
   const fixedCode = await chain.invoke({
     errors: iteration.errors!.join("\n"),
     code: iteration.code,
+    components: getComponentsList(
+      state.input.components || null,
+      iteration.task.suggestedComponents,
+    )
+      .map(formatComponentMeta)
+      .join("\n"),
   });
 
   return {
     iterations: [
       ...state.iterations!,
       {
-        index: state.iterations!.length,
         task: iteration.task,
-        status: "coded",
+        status: "fixed",
         code: fixedCode.files
           .map((file) => `//${file.name}\n${file.content}`)
           .join("\n\n"),
@@ -357,7 +365,7 @@ const testCodeEdge = (state: GraphState): GraphNode => {
     return END;
   }
 
-  return MAKE_FIX_TASK;
+  return FIX_CODE;
 };
 
 const startEdge = (state: GraphState): GraphNode => {
@@ -380,13 +388,13 @@ const graph = workflow
   .addNode<GraphNode>(MAKE_UPDATE_TASK, makeUpdateTaskNode)
   .addNode<GraphNode>(GENERATE_CODE, generateCodeNode)
   .addNode<GraphNode>(TEST_CODE, testCodeNode)
-  .addNode<GraphNode>(MAKE_FIX_TASK, makeFixTaskNode)
+  .addNode<GraphNode>(FIX_CODE, fixCodeNode)
   .addConditionalEdges(START, startEdge)
   .addEdge(MAKE_CREATE_TASK, GENERATE_CODE)
   .addEdge(MAKE_UPDATE_TASK, GENERATE_CODE)
   .addEdge(GENERATE_CODE, TEST_CODE)
   .addConditionalEdges(TEST_CODE, testCodeEdge)
-  .addEdge(MAKE_FIX_TASK, GENERATE_CODE)
+  .addEdge(FIX_CODE, TEST_CODE)
   .compile({ checkpointer: new MemorySaver() });
 
 const config = { configurable: { thread_id: "some-thread-id" } };
@@ -402,10 +410,14 @@ export const invoke = async (input: GraphState["input"]) => {
     console.log(lastStep ?? state.input);
     result = state;
   }
+
+  const lastStep = last(result.iterations);
+  // @ts-ignore
+  console.log(lastStep?.code);
 };
 
-const createSample = samples[0] as GraphState["input"];
-await invoke(createSample!);
+// const createSample = samples[0] as GraphState["input"];
+// await invoke(createSample!);
 
-// const updateSample = samples[1];
-// await invoke(updateSample!);
+const updateSample = samples[1] as GraphState["input"];
+await invoke(updateSample!);

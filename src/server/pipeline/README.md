@@ -8,3 +8,5 @@ This is a code gen thought pipeline experiment.
 $ export OPENAI_API_KEY=<your-api-key>
 $ node --no-warnings --loader ts-node/esm index.ts
 ```
+
+- Feel free to update the `samples.ts` which contains the example inputs
