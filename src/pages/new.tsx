@@ -1,18 +1,175 @@
 import { useSession } from "next-auth/react";
-import { useState, type ReactElement, useRef, Fragment } from "react";
+import { useState, useEffect, type ReactElement, useRef } from "react";
 import { ApplicationLayout } from "~/components/AppLayout";
 import {
   ChevronRightIcon,
   CommandLineIcon,
   PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
-import { Dialog, Transition } from "@headlessui/react";
-import { Spinner } from "~/components/Spinner";
-import Image from "next/image";
-import { api } from "~/utils/api";
 import toast from "react-hot-toast";
-import router from "next/router";
 import { type NextPageWithLayout } from "./_app";
+import { Component } from "~/components/Component";
+import { flushSync } from "react-dom";
+import router from "next/router";
+import { ComponentVisibility } from "@prisma/client";
+
+type State =
+  | {
+      status: "idle";
+      prompt: string;
+    }
+  | {
+      status: "generate";
+      prompt: string;
+      code: {
+        source: string;
+        rsc: string;
+      };
+    }
+  | {
+      status: "error";
+      prompt: string;
+    };
+
+const NewPage: NextPageWithLayout = () => {
+  const { data: session } = useSession();
+  const [state, setState] = useState<State>({ status: "idle", prompt: "" });
+
+  const handleGenerateComponent = async (prompt: string) => {
+    if (!session) {
+      return router.push("/login");
+    }
+
+    if (state.status === "generate") return;
+
+    flushSync(() => {
+      setState({
+        status: "generate",
+        prompt,
+        code: { source: "", rsc: "" },
+      });
+    });
+
+    fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(response.statusText);
+        }
+
+        const isStreaming =
+          response.headers.get("content-type") === "text/plain";
+
+        if (!isStreaming) {
+          const { componentId } = await response.json();
+          router.push(`/c/${componentId}`, undefined, { shallow: true });
+          return;
+        }
+
+        // Preload the PageEditor so that it is ready to
+        // use the RSC payload by the time we start to consume the stream
+        // without dropping chunks.
+        // Ideally the generation flow is refactored such that the PageEditor
+        // and its underlying iframe are ready BEFORE we kick in a generation request.
+        await import("~/components/PageEditor");
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error("No reader");
+        }
+
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            return;
+          }
+
+          try {
+            const data = decoder
+              .decode(value)
+              .split("$rschunk:")
+              .slice(1)
+              .map((chunk) => JSON.parse(chunk));
+
+            data.forEach((data) => {
+              if (data.done) {
+                flushSync(() => {
+                  setState({
+                    status: "generate",
+                    code: data.code,
+                    prompt,
+                  });
+                });
+                // Similarly to previous versions,
+                // router.push will reload and render the page.
+                // Technically though the API could instead return
+                // the component with its revisions to render
+                // and we can just update the url with a native
+                // history.pushState({}, "", `/c/${data.componentId}`)
+                // The only cons of this would be that the Next.js router
+                // won't pick up the history entry addition.
+                router.push(`/c/${data.componentId}`);
+              } else {
+                flushSync(() => {
+                  setState({
+                    status: "generate",
+                    code: data.code,
+                    prompt,
+                  });
+                });
+              }
+            });
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      })
+      .catch(() => {
+        setState({
+          status: "error",
+          prompt,
+        });
+        toast.error("Failed to generate component");
+        return;
+      });
+  };
+
+  if (state.status === "generate") {
+    return state.code.source ? (
+      <Component
+        component={{
+          id: "",
+          code: "",
+          prompt: "",
+          authorId: null,
+          visibility: ComponentVisibility.PUBLIC,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          revisions: [],
+        }}
+        code={state.code}
+        revisionId={""}
+      />
+    ) : (
+      <Loading />
+    );
+  }
+
+  return (
+    <NewForm
+      handleGenerateComponent={handleGenerateComponent}
+      initialPrompt={state.prompt}
+    />
+  );
+};
 
 const items = [
   {
@@ -32,59 +189,15 @@ const items = [
   },
 ];
 
-const loadingItems = [
-  {
-    image: "/images/compiling.png",
-    subtext: "Code is generating, enjoy your break",
-    xkcd: 303,
-  },
-  {
-    image: "/images/estimation.png",
-    subtext: "Why there are no time estimates on this product",
-    xkcd: 612,
-  },
-  {
-    image: "/images/machine_learning.png",
-    subtext: "Modifying prompts slightly can change the output",
-    xkcd: 1838,
-  },
-];
-
-const NewPage: NextPageWithLayout = () => {
-  const [isGenerating, setIsGenerating] = useState(false);
+const NewForm = ({
+  initialPrompt = "",
+  handleGenerateComponent,
+}: {
+  initialPrompt?: string;
+  handleGenerateComponent: (prompt: string) => void;
+}) => {
   const formRef = useRef<HTMLFormElement>(null);
-  const [input, setInput] = useState<string>("");
-
-  const generateComponent = api.component.createComponent.useMutation();
-  const { data: session } = useSession();
-  const randomItem =
-    loadingItems[Math.floor(Math.random() * loadingItems.length)]!;
-
-  const handleGenerateComponent = async (prompt: string) => {
-    if (!session) {
-      return router.push("/login");
-    }
-
-    // Prevent double submission
-    if (isGenerating) return;
-
-    setIsGenerating(true);
-
-    try {
-      const result = await generateComponent.mutateAsync(prompt);
-
-      if (result.status === "error") {
-        throw new Error("Failed to generate component");
-      }
-      const { componentId } = result.data;
-      await router.push(`/c/${componentId}`);
-      return;
-    } catch (e) {
-      setIsGenerating(false);
-      toast.error("Failed to generate component");
-      return;
-    }
-  };
+  const [input, setInput] = useState<string>(initialPrompt);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -100,67 +213,6 @@ const NewPage: NextPageWithLayout = () => {
     <div className="flex h-full flex-grow flex-col">
       <div className="flex min-w-0 flex-grow bg-neutral-100">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <Transition appear show={isGenerating} as={Fragment}>
-            <Dialog as="div" className="relative z-10" onClose={() => {}}>
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0"
-                enterTo="opacity-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100"
-                leaveTo="opacity-0"
-              >
-                <div className="fixed inset-0 bg-black bg-opacity-25" />
-              </Transition.Child>
-
-              <div className="fixed inset-0 overflow-y-auto">
-                <div className="flex min-h-full items-center justify-center p-4 text-center">
-                  <Transition.Child
-                    as={Fragment}
-                    enter="ease-out duration-300"
-                    enterFrom="opacity-0 scale-95"
-                    enterTo="opacity-100 scale-100"
-                    leave="ease-in duration-200"
-                    leaveFrom="opacity-100 scale-100"
-                    leaveTo="opacity-0 scale-95"
-                  >
-                    <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                      <Dialog.Title>
-                        <Spinner
-                          label="Generating..."
-                          className="text-md font-medium text-gray-600"
-                        />
-                      </Dialog.Title>
-                      <div className="mt-2 justify-center">
-                        <p className="text-center text-sm text-gray-500">
-                          Please be patient while things are being generated.
-                        </p>
-                        <Image
-                          src={randomItem.image}
-                          alt="Compiling"
-                          width={300}
-                          height={300}
-                          className="mx-auto mt-8"
-                        />
-                      </div>
-                      <p className="mt-1 text-center text-xs text-gray-500">
-                        {`${randomItem.subtext} (`}
-                        <a
-                          href={`https://xkcd.com/${randomItem.xkcd}`}
-                          target="_blank noreferer"
-                          className="text-indigo-600 hover:text-indigo-500"
-                        >
-                          xkcd
-                        </a>
-                        )
-                      </p>
-                    </Dialog.Panel>
-                  </Transition.Child>
-                </div>
-              </div>
-            </Dialog>
-          </Transition>
           <form onSubmit={handleSubmit} ref={formRef}>
             <div className="relative mx-5 my-64 flex items-center sm:mx-10 md:mx-32">
               <input
@@ -168,11 +220,11 @@ const NewPage: NextPageWithLayout = () => {
                 className="block w-full rounded-md border-0 py-1.5 pr-14 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 placeholder="A chat application panel with a header, a search input, and a list of recent conversations."
                 onChange={handleInputChange}
+                value={input}
               />
               <button
                 type="submit"
                 className="ml-1 inline-flex items-center rounded-md bg-indigo-600 px-2 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                disabled={isGenerating}
               >
                 <PaperAirplaneIcon className="h-4 w-4"></PaperAirplaneIcon>
               </button>
@@ -207,7 +259,6 @@ const NewPage: NextPageWithLayout = () => {
                           e.preventDefault();
                           handleGenerateComponent(item.description);
                         }}
-                        disabled={isGenerating}
                       >
                         <span className="absolute inset-0" aria-hidden="true" />
                         {item.name}
@@ -239,6 +290,51 @@ const NewPage: NextPageWithLayout = () => {
     </div>
   );
 };
+
+const optimisticMessages = [
+  "Processing Request",
+  "Connecting to the AI",
+  "Generating",
+  "Almost ready",
+  "Generating",
+];
+
+function Loading() {
+  const [optimisticState, setOptimisticState] = useState(0);
+
+  useEffect(() => {
+    let tid;
+    if (optimisticState < optimisticMessages.length - 1) {
+      const stage = optimisticState + 1;
+      tid = setTimeout(
+        () => {
+          setOptimisticState((state) => state + 1);
+        },
+        Math.random() * (stage * 1800 - stage * 800) + stage * 800,
+      );
+    }
+    return () => {
+      tid && clearTimeout(tid);
+    };
+  }, [optimisticState]);
+
+  return (
+    <div
+      aria-live="polite"
+      className="flex flex-col gap-8 items-center justify-center w-full h-full bg-gray-100"
+    >
+      <div className="space-y-2" aria-hidden="true">
+        <div className="w-32 h-2 bg-gray-300 rounded animate-pulse" />
+        <div className="w-40 h-2 bg-gray-300 rounded animate-pulse" />
+        <div className="w-24 h-2 bg-gray-300 rounded animate-pulse" />
+        <div className="w-36 h-2 bg-gray-300 rounded animate-pulse" />
+      </div>
+      <p className="text-gray-500 loading-ellipsis">
+        {optimisticMessages[optimisticState]}
+      </p>
+    </div>
+  );
+}
 
 NewPage.getLayout = (page: ReactElement) => (
   <ApplicationLayout title="Create a new component">{page}</ApplicationLayout>

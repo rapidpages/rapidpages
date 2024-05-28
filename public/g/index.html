@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Rapidpages</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@18.3.0-canary-14898b6a9-20240318",
+          "react-dom/client": "https://esm.sh/react-dom@18.3.0-canary-14898b6a9-20240318/client",
+          "react-server-dom-webpack/client": "https://esm.sh/react-server-dom-webpack@0.0.0-experimental-41b4714f1-20230328/client"
+        }
+      }
+    </script>
+    <script>
+      if (window.parent == window) {
+        window.location.href = "/";
+      }
+
+      // Map webpack resolution to native ESM.
+      window.__webpack_require__ = (id) => import(id);
+    </script>
+    <script type="module" src="./_client.js"></script>
+  </body>
+</html>

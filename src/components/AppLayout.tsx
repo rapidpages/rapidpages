@@ -8,6 +8,8 @@ import Link from "next/link";
 import { CustomToaster } from "~/components/CustomToaster";
 import Head from "next/head";
 import Image from "next/image";
+import { Button } from "./Button";
+import { useRouter } from "next/router";
 
 const navigation = [{ name: "My UIs", href: "/my-uis" }];
 const userNavigation = [{ name: "Settings", href: "/settings" }];
@@ -26,6 +28,8 @@ export const ApplicationLayout = ({
 }: ApplicationLayoutProps) => {
   const { data: session } = useSession();
   const user = session && session.user;
+
+  const router = useRouter();
 
   return (
     <>
@@ -67,7 +71,7 @@ export const ApplicationLayout = ({
                     </div>
                   )}
                 </div>
-                {session && (
+                {session ? (
                   <div className="hidden sm:ml-6 sm:flex sm:items-center">
                     {/* Profile dropdown */}
                     <Menu as="div" className="relative ml-3">
@@ -136,6 +140,12 @@ export const ApplicationLayout = ({
                         </Menu.Items>
                       </Transition>
                     </Menu>
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <Button href={`/login?redirect=${router.asPath}`}>
+                      Login
+                    </Button>
                   </div>
                 )}
 

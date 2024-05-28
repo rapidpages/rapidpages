@@ -10,3 +10,22 @@ body {
 #__next {
   @apply h-full min-h-full;
 }
+
+@keyframes loading-ellipsis {
+  0% {
+    content: ".";
+  }
+  33% {
+    content: "..";
+  }
+  66% {
+    content: "...";
+  }
+}
+
+.loading-ellipsis::after {
+  content: "";
+  animation: loading-ellipsis 1.4s linear infinite;
+  position: absolute;
+  color: inherit;
+}

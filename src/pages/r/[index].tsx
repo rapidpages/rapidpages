@@ -1,54 +1,33 @@
 import { type ReactElement } from "react";
-import { Panel, PanelGroup } from "react-resizable-panels";
 import { ApplicationLayout } from "~/components/AppLayout";
-import { ResizeHandle } from "~/components/ResizeHandle";
-import { SideMenu } from "~/components/SideMenu";
-import { EditorTabs } from "~/components/EditorTabs";
-import { ComponentProvider } from "~/context/ComponentProvider";
-import { Chat } from "~/components/Chat";
 import type {
   InferGetServerSidePropsType,
   GetServerSidePropsContext,
 } from "next";
 import { type NextPageWithLayout } from "~/pages/_app";
 import { ssgHelper } from "~/utils/ssg";
-import { useSession } from "next-auth/react";
+import { Component } from "~/components/Component";
+import { clientComponents } from "~/utils/available-client-components";
+import { renderToReactServerComponents } from "~/utils/render";
+import { isModern, modernTemplate } from "~/utils/utils";
 
 const RevisionPage: NextPageWithLayout<
   InferGetServerSidePropsType<typeof getServerSideProps>
-> = ({ component, revisionId }) => {
-  const { data: session } = useSession();
-  const code = component.revisions.find(
+> = ({ component, revisionId, rsc }) => {
+  let source = component.revisions.find(
     (revision) => revision.id === revisionId,
   )!.code;
 
+  if (isModern(source)) {
+    source = modernTemplate(source);
+  }
+
   return (
-    <>
-      <div className="flex h-full flex-grow flex-col">
-        <ComponentProvider>
-          <div className="flex min-w-0 flex-grow overflow-hidden bg-neutral-100">
-            <PanelGroup direction="horizontal">
-              {/* Left Menu */}
-              <Panel defaultSize={20} minSize={20} className="py-3 pl-3">
-                <SideMenu revisions={component.revisions} />
-              </Panel>
-              {/* Preview Area */}
-              <ResizeHandle />
-              <Panel
-                defaultSize={80}
-                minSize={30}
-                className="flex h-full flex-col pr-3"
-              >
-                <EditorTabs code={code} revisionId={revisionId} />
-                {session && session.user.id === component.authorId && (
-                  <Chat revisionId={revisionId} />
-                )}
-              </Panel>
-            </PanelGroup>
-          </div>
-        </ComponentProvider>
-      </div>
-    </>
+    <Component
+      component={component}
+      revisionId={revisionId}
+      code={{ source, rsc }}
+    />
   );
 };
 
@@ -70,11 +49,17 @@ export const getServerSideProps = async (
       notFound: true,
     };
   } else {
+    const code = component.revisions.find(
+      (revision) => revision.id === revisionId,
+    )!.code;
+
     return {
       props: {
-        trpcState: ssg.dehydrate(),
         component,
         revisionId,
+        rsc: isModern(code)
+          ? await renderToReactServerComponents(code, clientComponents)
+          : undefined,
       },
     };
   }

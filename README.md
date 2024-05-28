@@ -28,8 +28,14 @@ git clone https://github.com/rapidpages/rapidpages.git && cd rapidpages
 
 Edit the `.env.example` file to ensure the following values are set:
 
+Login:
+
 - `GITHUB_CLIENT_SECRET` & `GITHUB_CLIENT_ID`: you need to [create a GitHub oauth application](https://github.com/settings/applications/new) to be able to login. For `localhost` use `http://localhost:3000` and `http://localhost:3000/api/auth/callback/github` for Homepage and Authorization callback URL.
+
+AI:
+
 - `OPENAI_API_KEY`: you need to get a key from [OpenAI](https://platform.openai.com/)
+- (optional) `RAPIDPAGES_UNSTABLE_STREAMING`: you can enable streaming generative UIs by setting this value to `true`. Streaming is only supported when deploying to Vercel Serverless or long running processes (eg. Docker). If deploying to Vercel you need to set `supportsResponseStreaming: true` manually in `pages/api/generate.ts` - this is because Next.js doesn't support dynamic config exports and this configuration option cannot depend on an environment variable.
 
 #### Run Rapidpages on Host
 

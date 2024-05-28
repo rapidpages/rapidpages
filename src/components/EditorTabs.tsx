@@ -17,11 +17,16 @@ import { env } from "~/env.mjs";
 import router from "next/router";
 import { api } from "~/utils/api";
 
+export type EditorTabsCode = {
+  rsc?: string;
+  source: string;
+};
+
 export const EditorTabs = ({
   code,
   revisionId,
 }: {
-  code: string;
+  code: EditorTabsCode;
   revisionId: string;
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -98,66 +103,73 @@ export const EditorTabs = ({
             <span>New</span>
           </Link>
 
-          <button
-            className="inline-flex flex-1 items-center rounded-md bg-indigo-600 px-2.5 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
-            onClick={async (e) => {
-              e.preventDefault();
-              try {
-                const result = await forkRevision.mutateAsync({
-                  revisionId,
-                });
+          {revisionId ? (
+            <button
+              className="inline-flex flex-1 items-center rounded-md bg-indigo-600 px-2.5 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+              onClick={async (e) => {
+                e.preventDefault();
+                try {
+                  const result = await forkRevision.mutateAsync({
+                    revisionId,
+                  });
 
-                if (result.status === "error") {
-                  throw new Error("Failed to fork revision");
-                }
-                await router.push(`/r/${result.data.revisionId}`);
-                return;
-              } catch (e) {
-                if (e instanceof Error && e.message === "UNAUTHORIZED") {
-                  router.push(`/login?redirect=/r/${revisionId}`);
+                  if (result.status === "error") {
+                    throw new Error("Failed to fork revision");
+                  }
+                  await router.push(`/r/${result.data.revisionId}`);
+                  return;
+                } catch (e) {
+                  if (e instanceof Error && e.message === "UNAUTHORIZED") {
+                    router.push(`/login?redirect=/r/${revisionId}`);
+                    return;
+                  }
+                  toast.error("Failed to fork revision");
                   return;
                 }
-                toast.error("Failed to fork revision");
-                return;
-              }
-            }}
-          >
-            <DocumentDuplicateIcon
-              className="mr-2 h-4 w-4"
-              aria-hidden="true"
-            />
-            <span>Fork</span>
-          </button>
+              }}
+            >
+              <DocumentDuplicateIcon
+                className="mr-2 h-4 w-4"
+                aria-hidden="true"
+              />
+              <span>Fork</span>
+            </button>
+          ) : null}
 
-          <button
-            className="inline-flex flex-1 items-center rounded-md bg-indigo-600 px-2.5 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
-            onClick={(e) => {
-              e.preventDefault();
-              navigator.clipboard
-                .writeText(`${env.NEXT_PUBLIC_URL}/r/${revisionId}`)
-                .then(
-                  () => {
-                    toast.success("Copied url to clipboard");
-                  },
-                  () => {
-                    toast.error("Failed to copy to clipboard");
-                  },
-                );
-            }}
-          >
-            <ArrowUpTrayIcon className="mr-2 h-4 w-4" aria-hidden="true" />
-            <span>Share</span>
-          </button>
+          {revisionId ? (
+            <button
+              className="inline-flex flex-1 items-center rounded-md bg-indigo-600 px-2.5 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+              onClick={(e) => {
+                e.preventDefault();
+                navigator.clipboard
+                  .writeText(`${env.NEXT_PUBLIC_URL}/r/${revisionId}`)
+                  .then(
+                    () => {
+                      toast.success("Copied url to clipboard");
+                    },
+                    () => {
+                      toast.error("Failed to copy to clipboard");
+                    },
+                  );
+              }}
+            >
+              <ArrowUpTrayIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+              <span>Share</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
       <div className="h-1 w-full rounded-t-lg border border-b-0 border-gray-300 bg-gray-200" />
       <Tab.Panels className="h-full pb-3">
-        <Tab.Panel key={0} className="flex h-full flex-col">
-          <PagePanel code={code} />
+        <Tab.Panel key={0} className="flex h-full flex-col" unmount={false}>
+          <PagePanel
+            code={typeof code.rsc === "string" ? code.rsc : code.source}
+            legacy={typeof code.rsc !== "string"}
+          />
         </Tab.Panel>
         <Tab.Panel key={1} className="flex h-full max-h-full flex-col">
-          <CodePanel code={code} />
+          <CodePanel code={code.source} />
         </Tab.Panel>
       </Tab.Panels>
     </Tab.Group>
