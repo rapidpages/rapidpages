@@ -68,7 +68,6 @@ const NewPage: NextPageWithLayout = () => {
             toast.error(response.statusText);
             return;
           }
-
           throw new Error(response.statusText);
         }
 

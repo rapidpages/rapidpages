@@ -29,7 +29,6 @@ export const Component = ({
   const { data: session } = useSession();
 
   const canRevise = session && session.user.id === component.authorId && plan;
-
   return (
     <>
       <div className="flex h-full flex-grow flex-col">
