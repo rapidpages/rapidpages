@@ -149,7 +149,7 @@ export async function renderStreamReactServerComponents<
       }
 
       source += decoder.decode(value);
-      source = source.replace(/jsx/, "").replace(/```\s*$/, "");
+      source = source.replace(/^\s*(```jsx|jsx)/, "").replace(/```\s*$/, "");
 
       try {
         const reactTree = evaluateReact(

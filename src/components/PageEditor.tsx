@@ -37,7 +37,7 @@ export const PageEditor = ({ code }: PageEditorProps) => {
       title="The editor's rendered HTML document"
       src="/g/index.html"
       ref={iframeRef}
-      className="absolute inset-0 overflow-hidden rounded-b-lg w-full h-full"
+      className="absolute inset-0 h-full w-full overflow-hidden rounded-b-lg"
     />
   );
 };

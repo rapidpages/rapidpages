@@ -154,7 +154,7 @@ const NewPage: NextPageWithLayout = () => {
   };
 
   if (state.status === "generate") {
-    return state.code.source ? (
+    return state.code.source || state.code.rsc ? (
       <Component
         component={{
           id: "",
@@ -311,11 +311,11 @@ const optimisticMessages = [
   "Generating",
 ];
 
-function Loading() {
+const Loading = () => {
   const [optimisticState, setOptimisticState] = useState(0);
 
   useEffect(() => {
-    let tid;
+    let tid = null;
     if (optimisticState < optimisticMessages.length - 1) {
       const stage = optimisticState + 1;
       tid = setTimeout(
@@ -333,20 +333,20 @@ function Loading() {
   return (
     <div
       aria-live="polite"
-      className="flex flex-col gap-8 items-center justify-center w-full h-full bg-gray-100"
+      className="flex h-full w-full flex-col items-center justify-center gap-8 bg-gray-100"
     >
       <div className="space-y-2" aria-hidden="true">
-        <div className="w-32 h-2 bg-gray-300 rounded animate-pulse" />
-        <div className="w-40 h-2 bg-gray-300 rounded animate-pulse" />
-        <div className="w-24 h-2 bg-gray-300 rounded animate-pulse" />
-        <div className="w-36 h-2 bg-gray-300 rounded animate-pulse" />
+        <div className="h-2 w-32 animate-pulse rounded bg-gray-300" />
+        <div className="h-2 w-40 animate-pulse rounded bg-gray-300" />
+        <div className="h-2 w-24 animate-pulse rounded bg-gray-300" />
+        <div className="h-2 w-36 animate-pulse rounded bg-gray-300" />
       </div>
-      <p className="text-gray-500 loading-ellipsis">
+      <p className="loading-ellipsis text-gray-500">
         {optimisticMessages[optimisticState]}
       </p>
     </div>
   );
-}
+};
 
 NewPage.getLayout = (page: ReactElement) => (
   <ApplicationLayout title="Create a new component">{page}</ApplicationLayout>
