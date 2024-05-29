@@ -46,6 +46,12 @@ User Subscriptions (Payments):
 
 Switch to Test Mode on Stripe https://dashboard.stripe.com/test
 
+Register a webhook (or see the "Test Stripe Webhooks Locally" section below) at https://dashboard.stripe.com/test/webhooks
+You will need to select only the following events:
+
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+
 Configure your plans in [plans.ts](src/plans.ts).
 
 #### Test Stripe Webhooks Locally
@@ -53,7 +59,7 @@ Configure your plans in [plans.ts](src/plans.ts).
 Install the Stripe CLI https://docs.stripe.com/stripe-cli and execute the following command:
 
 ```
-stripe listen --forward-to=localhost:3000/api/stripe
+stripe listen --forward-to=localhost:3000/api/stripe --events customer.subscription.updated,customer.subscription.deleted
 ```
 
 The CLI will generate and log a webhook signing secret in the console. You will need to configure this as the `STRIPE_WEBHOOK_SECRET` environment variable.
