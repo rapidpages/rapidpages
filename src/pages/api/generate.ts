@@ -31,7 +31,8 @@ const handler: NextApiHandler = async (request, response) => {
   const { prompt } = request.body;
 
   if (request.method !== "POST" || !prompt) {
-    return response.status(400).end();
+    response.status(400).end();
+    return;
   }
 
   const session = await getServerSession(request, response, authOptions);
@@ -39,7 +40,8 @@ const handler: NextApiHandler = async (request, response) => {
   const userId = session?.user?.id;
 
   if (!userId) {
-    return response.status(401).end();
+    response.status(401).end();
+    return;
   }
 
   let credits = {
@@ -55,13 +57,14 @@ const handler: NextApiHandler = async (request, response) => {
         ? error.message
         : "An error occured while validating your credits, please contact us.";
 
-    return response.status(403).end(response.statusMessage);
+    response.status(403).end(response.statusMessage);
+    return;
   }
 
   // This is used to detect the type of response on the client
   // (streaming or not (json)) and handle it accordingly.
   response.setHeader(
-    "content-type",
+    "Content-Type",
     env.RAPIDPAGES_UNSTABLE_STREAMING ? "text/plain" : "application/json",
   );
 

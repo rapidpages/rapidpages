@@ -50,7 +50,7 @@ export const compileTypescript = async (code: string) => {
       @tailwind components;
       @tailwind utilities;
     `,
-    [compiledComponent.code, output.code],
+    [compiledComponent.code as string, output.code as string],
   );
 
   const html = `<!DOCTYPE html>
